@@ -5,7 +5,7 @@ import boto3,botocore
 sts_client=boto3.client('sts')
 
 #Calling the assume_role function
-assumed_role_object=sts_client.assume_role(RoleArn='arn:aws:iam::495599767034:role/Engineer', RoleSessionName='mysession')
+assumed_role_object=sts_client.assume_role(RoleArn='arn:aws:iam::222634373909:role/Engineer', RoleSessionName='mysession')
 
 credentials=assumed_role_object['Credentials']
 
