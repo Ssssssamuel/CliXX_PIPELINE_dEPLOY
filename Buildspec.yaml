@@ -1,0 +1,45 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - pip install yq
+  pre_build:
+    commands:
+      - echo "Starting CliXX deployment...."
+      - echo "more commands"
+  build:
+    on-failure: ABORT
+    commands:
+      - echo starting build on `date`
+      - echo "Creating CliXX Security Group for apps and database"
+      - |
+         aws ec2 create-security-group \
+         --group-name demo-sg \
+         --description "Aws ec2 CLI Demo SG" \
+         --tag-specifications 'ResourceType=security-group, Tags=[{Key=Name,Value=demo-sg}]' \
+         --vpc-id "" \
+         --region "us-east-1"
+  post_build:
+    commands:
+      - echo Build completed on `date`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
