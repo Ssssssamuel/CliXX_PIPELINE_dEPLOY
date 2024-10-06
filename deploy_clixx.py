@@ -11,11 +11,15 @@ credentials=assumed_role_object['Credentials']
 
 print(credentials)
 
-ec2=boto3.client('ec2',aws_access_key_id=credentials['AccessKeyId'],aws_secret_access_key=credentials['SecretAccessKey'],aws_session_token=credentials['SessionToken'])
-response = ec2.create_security_group(
-    Description='My security group',
-    GroupName='my-security-group',
-    VpcId='vpc-09c489f7e7f6ccbfe'
-    )
-
+# Create RDS client
+rds_client = boto3.client('rds',aws_access_key_id=credentials['AccessKeyId'],aws_secret_access_key=credentials['SecretAccessKey'],aws_session_token=credentials['SessionToken'])
+# Restore DB instance from snapshot
+response = rds_client.restore_db_instance_from_db_snapshot(
+    DBInstanceIdentifier='wordpressdbclixx-ecs',
+    DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
+    DBInstanceClass='db.m6gd.large',
+    AvailabilityZone='us-east-1a',
+    MultiAZ=False,
+    PubliclyAccessible=True
+)
 print(response)
