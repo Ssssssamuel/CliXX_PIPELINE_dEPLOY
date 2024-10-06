@@ -5,7 +5,7 @@ import boto3,botocore
 sts_client=boto3.client('sts')
 
 #Calling the assume_role function
-assumed_role_object=sts_client.assume_role(RoleArn='arn:aws:iam::495599767034:role/Engineer', RoleSessionName='mysession')
+assumed_role_object=sts_client.assume_role(RoleArn='arn:aws:iam::222634373909:role/Engineer', RoleSessionName='mysession')
 
 credentials=assumed_role_object['Credentials']
 
@@ -21,7 +21,7 @@ ec2=boto3.client('ec2',aws_access_key_id=credentials['AccessKeyId'],aws_secret_a
 response = ec2.create_security_group(
     Description='My security group',
     GroupName='my-security-group',
-    VpcId='vpc-0c6460b8c3c8fe62f'
+    VpcId='vpc-09c489f7e7f6ccbfe'
     )
 
 print(response)
