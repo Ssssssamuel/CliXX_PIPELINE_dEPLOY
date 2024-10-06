@@ -6,7 +6,7 @@ phases:
       - pip install boto3
   pre_build:
     commands:
-      - echo "Starting CliXX deployment...."
+      - echo "Starting CliXX deployment"
       - echo "more commands"
   build:
     on-failure: ABORT
@@ -14,35 +14,14 @@ phases:
       - echo starting build on `date`
       - echo "Creating CliXX Security Group for apps and database"
       - |
-          flag="create"
-          if [[ $flag == 'create']]
+          flag="destroy"
+          if [[ $flag == 'create' ]]
           then
-            python deploy_clixx.py
-          elif [[ $flag == 'destroy']]
+              python deploy_clixx.py
+          elif [[ $flag == 'destroy' ]]
           then
-            python destroy_clixx.py
+              python destroy_clixx.py
           fi
   post_build:
     commands:
       - echo Build completed on `date`
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
