@@ -10,25 +10,6 @@ assumed_role_object = sts_client.assume_role(
 credentials = assumed_role_object['Credentials']
 print("Assumed role credentials received.")
 
-# RDS client using assumed credentials
-rds_client = boto3.client(
-    'rds',
-    aws_access_key_id=credentials['AccessKeyId'],
-    aws_secret_access_key=credentials['SecretAccessKey'],
-    aws_session_token=credentials['SessionToken']
-)
-
-# Restore DB instance from snapshot
-response = rds_client.restore_db_instance_from_db_snapshot(
-    DBInstanceIdentifier='wordpressdbclixx-ecs',
-    DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
-    DBInstanceClass='db.m6gd.large',
-    AvailabilityZone='us-east-1a',
-    MultiAZ=False,
-    PubliclyAccessible=True
-)
-print("DB instance restored:", response)
-
 # EC2 instance variables
 AWS_REGION = "us-east-1"
 KEY_PAIR_NAME = 'stack_devops_kp7'
