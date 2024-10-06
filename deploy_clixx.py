@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import boto3
+import boto3,botocore
+import time
 
 # Assume IAM Role for Boto3 session
 sts_client = boto3.client('sts')
@@ -16,7 +17,7 @@ KEY_PAIR_NAME = 'stack_devops_kp7'
 AMI_ID = 'ami-00f251754ac5da7f0'
 SUBNET_ID = 'subnet-0c6f53069ca4e9922'
 SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
-INSTANCE_PROFILE = 'EC2-Admin'
+#INSTANCE_PROFILE = 'EC2-Admin'
 
 # User data script to be run on the instance
 USER_DATA = '''#!/bin/bash
@@ -88,9 +89,9 @@ instance.wait_until_running()
 print(f'EC2 instance {instance.id} launched.')
 
 # Attach IAM instance profile
-ec2_client = boto3.client('ec2', region_name=AWS_REGION)
-ec2_client.associate_iam_instance_profile(
-    IamInstanceProfile={'Name': INSTANCE_PROFILE},
-    InstanceId=instance.id
-)
-print(f'Instance Profile "{INSTANCE_PROFILE}" attached to instance {instance.id}.')
+#ec2_client = boto3.client('ec2', region_name=AWS_REGION)
+#ec2_client.associate_iam_instance_profile(
+#    IamInstanceProfile={'Name': INSTANCE_PROFILE},
+#    InstanceId=instance.id
+#)
+#print(f'Instance Profile "{INSTANCE_PROFILE}" attached to instance {instance.id}.')
