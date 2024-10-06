@@ -77,7 +77,7 @@ instance = ec2_resource.create_instances(
     SecurityGroupIds=[SECURITY_GROUP_ID],
     SubnetId=SUBNET_ID,
     UserData=USER_DATA,
-    Placement={'AvailabilityZone': 'us-east-1c'},
+    Placement={'AvailabilityZone': 'us-east-1a'},
     TagSpecifications=[
         {
             'ResourceType': 'instance',
