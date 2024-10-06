@@ -13,7 +13,7 @@ print("Assumed role credentials received.")
 
 # EC2 instance variables
 AWS_REGION = "us-east-1"
-KEY_PAIR_NAME = 'stack_devops_kp7'
+#KEY_PAIR_NAME = 'stack_devops_kp7'
 AMI_ID = 'ami-00f251754ac5da7f0'
 #SUBNET_ID = 'subnet-0099b1949b6a7ba1c'
 #SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
@@ -73,7 +73,7 @@ instance = ec2_resource.create_instances(
     MaxCount=1,
     ImageId=AMI_ID,
     InstanceType='t2.micro',
-    KeyName=KEY_PAIR_NAME,
+    #KeyName=KEY_PAIR_NAME,
     #SecurityGroupIds=[SECURITY_GROUP_ID],
     #SubnetId=SUBNET_ID,
     UserData=USER_DATA,
