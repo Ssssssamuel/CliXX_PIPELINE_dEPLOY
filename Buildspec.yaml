@@ -14,7 +14,7 @@ phases:
       - echo starting build on `date`
       - echo "Creating CliXX Security Group for apps and database"
       - |
-          flag="destroy"
+          flag="create"
           if [[ $flag == 'create' ]]
           then
               python deploy_clixx.py
