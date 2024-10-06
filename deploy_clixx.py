@@ -15,7 +15,7 @@ print("Assumed role credentials received.")
 AWS_REGION = "us-east-1"
 KEY_PAIR_NAME = 'stack_devops_kp7'
 AMI_ID = 'ami-00f251754ac5da7f0'
-SUBNET_ID = 'subnet-077c0abf304d257a5'
+SUBNET_ID = 'subnet-0c3af81730652bfe9'
 SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
 #INSTANCE_PROFILE = 'EC2-Admin'
 
