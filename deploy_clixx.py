@@ -11,7 +11,7 @@ credentials = assumed_role_object['Credentials']
 print("Assumed role credentials received.")
 
 # EC2 instance variables
-AWS_REGION = "us-east-1a"
+AWS_REGION = "us-east-1"
 KEY_PAIR_NAME = 'stack_devops_kp7.pem'
 AMI_ID = 'ami-00f251754ac5da7f0'  # Amazon Linux 2
 SUBNET_ID = 'subnet-0c6f53069ca4e9922' 
