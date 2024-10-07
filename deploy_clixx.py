@@ -61,7 +61,7 @@ sudo systemctl enable httpd
 sudo systemctl is-enabled httpd
 
 ## Mounting EFS
-FILE_SYSTEM_ID=fs-0c7225b6c50e6deff
+FILE_SYSTEM_ID=fs-06414348d110197ce
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAILABILITY_ZONE:0:-1}
 MOUNT_POINT=/var/www/html
