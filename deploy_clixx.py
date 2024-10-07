@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import boto3,botocore
-import time
 
 # Assume IAM Role for Boto3 session
 sts_client = boto3.client('sts')
@@ -9,21 +8,14 @@ assumed_role_object=sts_client.assume_role(
     RoleSessionName='mysession')
 
 credentials=assumed_role_object['Credentials']
-
 print(credentials)
 
-#assumed_role_object = sts_client.assume_role(
-#    RoleArn='arn:aws:iam::222634373909:role/Engineer',
-#    RoleSessionName='mysession'
-#)
-#credentials = assumed_role_object['Credentials']
-#print("Assumed role credentials received.")
 
 # EC2 instance variables
 AWS_REGION = "us-east-1"
 KEY_PAIR_NAME = 'stack_devops_kp7'
 AMI_ID = 'ami-00f251754ac5da7f0'
-SUBNET_ID = 'subnet-0099b1949b6a7ba1c'
+SUBNET_ID = 'subnet-0c6f53069ca4e9922'
 SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
 #INSTANCE_PROFILE = 'EC2-Admin'
 
@@ -82,8 +74,6 @@ EC2_RESOURCE = boto3.resource('ec2',
                               region_name=AWS_REGION)
 
 EC2_CLIENT = boto3.client('ec2', region_name=AWS_REGION)
-
-#ec2_resource = boto3.resource('ec2', region_name=AWS_REGION)
 instance = EC2_RESOURCE.create_instances(
     MinCount=1,
     MaxCount=1,
@@ -93,15 +83,24 @@ instance = EC2_RESOURCE.create_instances(
     SecurityGroupIds=[SECURITY_GROUP_ID],
     SubnetId=SUBNET_ID,
     UserData=USER_DATA,
-    Placement={'AvailabilityZone': 'us-east-1a'},
     TagSpecifications=[
         {
             'ResourceType': 'instance',
             'Tags': [{'Key': 'Name', 'Value': 'my-ec2-instance'}]
         }
     ]
+    # Enable public IP assignment
+    NetworkInterfaces=[
+        {
+            'AssociatePublicIpAddress': True,
+            'DeviceIndex': 0,
+            'SubnetId': SUBNET_ID,
+            'Groups': [SECURITY_GROUP_ID]
+        }
+    ]
 )[0]
 instance.wait_until_running()
+
 print(f'EC2 instance {instance.id} launched.')
 
 # Attach IAM instance profile
