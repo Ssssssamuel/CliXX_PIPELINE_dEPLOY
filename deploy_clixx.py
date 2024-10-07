@@ -128,13 +128,12 @@ instance.wait_until_running()
 print(f'EC2 instance {instance.id} launched.')
 
 # Register the instance with the target group
-elbv2_client = boto3.resource('elbv2',
-                              aws_access_key_id=credentials['AccessKeyId'],
-                              aws_secret_access_key=credentials['SecretAccessKey'],
-                              aws_session_token=credentials['SessionToken'],
-                              region_name=AWS_REGION)
+elbv2_client = boto3.client('elbv2', 
+                            aws_access_key_id=credentials['AccessKeyId'],
+                            aws_secret_access_key=credentials['SecretAccessKey'],
+                            aws_session_token=credentials['SessionToken'],
+                            region_name=AWS_REGION)
 
-elbv2_client = boto3.client('elbv2', region_name=AWS_REGION)
 response = elbv2_client.register_targets(
     TargetGroupArn=TARGET_GROUP_ARN,
     Targets=[{'Id': instance.id}]
