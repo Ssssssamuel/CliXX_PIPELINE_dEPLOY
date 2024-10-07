@@ -118,6 +118,7 @@ sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 
 # Updating WordPress to recognize client session
 sudo sed -i "s|/\* That's all, stop editing! \*/|if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') { \$_SERVER['HTTPS'] = 'on'; }\n/* That's all, stop editing! */|" /var/www/html/wp-config.php
+
  
 # Grant file ownership of /var/www & its contents to apache user
 sudo chown -R apache /var/www
