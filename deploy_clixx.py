@@ -19,7 +19,7 @@ rds_client = boto3.client('rds',
 )
 # Restore DB instance from snapshot
 response = rds_client.restore_db_instance_from_db_snapshot(
-    DBInstanceIdentifier='wordpressdbclixx-ecs',
+    DBInstanceIdentifier='wordpressdbclixx',
     DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
     DBInstanceClass='db.m6gd.large',
     AvailabilityZone='us-east-1a',
