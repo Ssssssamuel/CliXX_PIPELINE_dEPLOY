@@ -4,19 +4,27 @@ import time
 
 # Assume IAM Role for Boto3 session
 sts_client = boto3.client('sts')
-assumed_role_object = sts_client.assume_role(
-    RoleArn='arn:aws:iam::222634373909:role/Engineer',
-    RoleSessionName='mysession'
-)
-credentials = assumed_role_object['Credentials']
-print("Assumed role credentials received.")
+assumed_role_object=sts_client.assume_role(
+    RoleArn='arn:aws:iam::222634373909:role/Engineer', 
+    RoleSessionName='mysession')
+
+credentials=assumed_role_object['Credentials']
+
+print(credentials)
+
+#assumed_role_object = sts_client.assume_role(
+#    RoleArn='arn:aws:iam::222634373909:role/Engineer',
+#    RoleSessionName='mysession'
+#)
+#credentials = assumed_role_object['Credentials']
+#print("Assumed role credentials received.")
 
 # EC2 instance variables
 AWS_REGION = "us-east-1"
-#KEY_PAIR_NAME = 'stack_devops_kp7'
+KEY_PAIR_NAME = 'stack_devops_kp7'
 AMI_ID = 'ami-00f251754ac5da7f0'
-#SUBNET_ID = 'subnet-0099b1949b6a7ba1c'
-#SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
+SUBNET_ID = 'subnet-0099b1949b6a7ba1c'
+SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
 #INSTANCE_PROFILE = 'EC2-Admin'
 
 # User data script to be run on the instance
@@ -67,15 +75,23 @@ sudo systemctl restart httpd
 '''
 
 # Create EC2 instance
-ec2_resource = boto3.resource('ec2', region_name=AWS_REGION)
-instance = ec2_resource.create_instances(
+EC2_RESOURCE = boto3.resource('ec2',
+                              aws_access_key_id=credentials['AccessKeyId'],
+                              aws_secret_access_key=credentials['SecretAccessKey'],
+                              aws_session_token=credentials['SessionToken'],
+                              region_name=AWS_REGION)
+
+EC2_CLIENT = boto3.client('ec2', region_name=AWS_REGION)
+
+#ec2_resource = boto3.resource('ec2', region_name=AWS_REGION)
+instance = EC2_RESOURCE.create_instances(
     MinCount=1,
     MaxCount=1,
     ImageId=AMI_ID,
     InstanceType='t2.micro',
-    #KeyName=KEY_PAIR_NAME,
-    #SecurityGroupIds=[SECURITY_GROUP_ID],
-    #SubnetId=SUBNET_ID,
+    KeyName=KEY_PAIR_NAME,
+    SecurityGroupIds=[SECURITY_GROUP_ID],
+    SubnetId=SUBNET_ID,
     UserData=USER_DATA,
     Placement={'AvailabilityZone': 'us-east-1a'},
     TagSpecifications=[
