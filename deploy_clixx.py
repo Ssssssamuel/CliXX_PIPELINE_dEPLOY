@@ -100,6 +100,7 @@ instance = EC2_RESOURCE.create_instances(
     ImageId=AMI_ID,
     InstanceType='t2.micro',
     KeyName=KEY_PAIR_NAME,
+    UserData=USER_DATA,
     # Security Group and Subnet are now set via Network Interface
     NetworkInterfaces=[
         {
@@ -109,7 +110,6 @@ instance = EC2_RESOURCE.create_instances(
             'Groups': [SECURITY_GROUP_ID]
         }
     ],
-    UserData=USER_DATA,
     TagSpecifications=[
         {
             'ResourceType': 'instance',
