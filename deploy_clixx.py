@@ -99,7 +99,7 @@ sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/
 
 # Updating WordPress site URLs in RDS database
 echo "Running DB update statement..." >> /var/log/userdata.log
-RESULT=$(mysql -u "$DB_USER" -p"$DB_PASS" -h "$EP_DNS" -D "$DB_NAME" -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%';")
+RESULT=$(mysql -u $DB_USER -p'$DB_PASS' -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%';")
 
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
