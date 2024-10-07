@@ -19,7 +19,7 @@ rds_client = boto3.client('rds',
 )
 # Restore DB instance from snapshot
 response = rds_client.restore_db_instance_from_db_snapshot(
-    DBInstanceIdentifier='wordpressdbclixx',
+    DBInstanceIdentifier='wordpressdbclixx-ecs',
     DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
     DBInstanceClass='db.m6gd.large',
     AvailabilityZone='us-east-1a',
@@ -47,7 +47,7 @@ DB_NAME="wordpressdb"
 DB_USER="wordpressuser"
 DB_PASS="W3lcome123"
 LB_DNS="https://dev.clixx-samuel.com"
-EP_DNS="wordpressdbclixx.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
+EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
 
 exec > >(tee -a /var/log/userdata.log) 2>&1
  
@@ -61,7 +61,7 @@ sudo systemctl enable httpd
 sudo systemctl is-enabled httpd
 
 ## Mounting EFS
-FILE_SYSTEM_ID=fs-06414348d110197ce
+FILE_SYSTEM_ID=fs-0b5d285f86c3713d8
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAILABILITY_ZONE:0:-1}
 MOUNT_POINT=/var/www/html
