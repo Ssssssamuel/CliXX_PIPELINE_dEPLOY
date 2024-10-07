@@ -12,7 +12,7 @@ print(credentials)
 
 
 # EC2 instance variables
-AWS_REGION = "us-east-1"
+AWS_REGION = 'us-east-1'
 KEY_PAIR_NAME = 'stack_devops_kp7'
 AMI_ID = 'ami-00f251754ac5da7f0'
 SUBNET_ID = 'subnet-0c6f53069ca4e9922'
@@ -80,22 +80,20 @@ instance = EC2_RESOURCE.create_instances(
     ImageId=AMI_ID,
     InstanceType='t2.micro',
     KeyName=KEY_PAIR_NAME,
-    SecurityGroupIds=[SECURITY_GROUP_ID],
-    SubnetId=SUBNET_ID,
-    UserData=USER_DATA,
-    TagSpecifications=[
-        {
-            'ResourceType': 'instance',
-            'Tags': [{'Key': 'Name', 'Value': 'my-ec2-instance'}]
-        }
-    ]
-    # Enable public IP assignment
+    # Security Group and Subnet are now set via Network Interface
     NetworkInterfaces=[
         {
             'AssociatePublicIpAddress': True,
             'DeviceIndex': 0,
             'SubnetId': SUBNET_ID,
             'Groups': [SECURITY_GROUP_ID]
+        }
+    ],
+    UserData=USER_DATA,
+    TagSpecifications=[
+        {
+            'ResourceType': 'instance',
+            'Tags': [{'Key': 'Name', 'Value': 'my-ec2-instance'}]
         }
     ]
 )[0]
