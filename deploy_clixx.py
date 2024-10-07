@@ -115,7 +115,7 @@ instance = EC2_RESOURCE.create_instances(
             'ResourceType': 'instance',
             'Tags': [{'Key': 'Name', 'Value': 'my-ec2-instance'}]
         }
-    ]
+    ],
     # Metadata Options for the instance
     MetadataOptions={
         'HttpTokens': 'optional',
