@@ -61,7 +61,7 @@ sudo systemctl enable httpd
 sudo systemctl is-enabled httpd
 
 # Mounting EFS
-FILE_SYSTEM_ID=fs-0413e502481bc3c61
+FILE_SYSTEM_ID=fs-0b1038c5866259742
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAILABILITY_ZONE:0:-1}
 MOUNT_POINT=/var/www/html
@@ -99,13 +99,13 @@ sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/
 
 # Updating WordPress site URLs in RDS database
 echo "Running DB update statement..." >> /var/log/userdata.log
-RESULT=$(mysql -u $DB_USER -p'$DB_PASS' -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%';")
+RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%';")
 
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
     echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
-    mysql -u "$DB_USER" -p"$DB_PASS" -h "$EP_DNS" -D "$DB_NAME" <<EOF
-UPDATE wp_options SET option_value ='$LB_DNS' WHERE option_value LIKE 'CliXX-APP-NLB%';
+    mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
+UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%';
 EOF
     echo "UPDATE query executed." >> /var/log/userdata.log
 else
