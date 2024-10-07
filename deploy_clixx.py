@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import boto3,botocore
+import time
 
 # Assume IAM Role for Boto3 session
 sts_client = boto3.client('sts')
@@ -10,6 +11,24 @@ assumed_role_object=sts_client.assume_role(
 credentials=assumed_role_object['Credentials']
 print(credentials)
 
+# RDS client using assumed credentials
+rds_client = boto3.client('rds',
+    aws_access_key_id=credentials['AccessKeyId'],
+    aws_secret_access_key=credentials['SecretAccessKey'],
+    aws_session_token=credentials['SessionToken']
+)
+# Restore DB instance from snapshot
+response = rds_client.restore_db_instance_from_db_snapshot(
+    DBInstanceIdentifier='wordpressdbclixx-ecs',
+    DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
+    DBInstanceClass='db.m6gd.large',
+    AvailabilityZone='us-east-1a',
+    MultiAZ=False,
+    PubliclyAccessible=True
+)
+print("DB instance restored:", response)
+
+time.sleep(300)
 
 # EC2 instance variables
 AWS_REGION = 'us-east-1'
@@ -17,6 +36,7 @@ KEY_PAIR_NAME = 'stack_devops_kp7'
 AMI_ID = 'ami-00f251754ac5da7f0'
 SUBNET_ID = 'subnet-0c6f53069ca4e9922'
 SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
+TARGET_GROUP_ARN = 'arn:aws:elasticloadbalancing:us-east-1:222634373909:targetgroup/CliXX-App-TG/90fae24863253e24'
 #INSTANCE_PROFILE = 'EC2-Admin'
 
 # User data script to be run on the instance
@@ -96,10 +116,31 @@ instance = EC2_RESOURCE.create_instances(
             'Tags': [{'Key': 'Name', 'Value': 'my-ec2-instance'}]
         }
     ]
+    # Metadata Options for the instance
+    MetadataOptions={
+        'HttpTokens': 'optional',
+        'HttpPutResponseHopLimit': 1,
+        'HttpEndpoint': 'enabled'
+    }
 )[0]
 instance.wait_until_running()
 
 print(f'EC2 instance {instance.id} launched.')
+
+# Register the instance with the target group
+elbv2_client = boto3.resource('elbv2',
+                              aws_access_key_id=credentials['AccessKeyId'],
+                              aws_secret_access_key=credentials['SecretAccessKey'],
+                              aws_session_token=credentials['SessionToken'],
+                              region_name=AWS_REGION)
+
+elbv2_client = boto3.client('elbv2', region_name=AWS_REGION)
+response = elbv2_client.register_targets(
+    TargetGroupArn=TARGET_GROUP_ARN,
+    Targets=[{'Id': instance.id}]
+)
+
+print(f'EC2 instance {instance.id} registered with target group {TARGET_GROUP_ARN}.')
 
 # Attach IAM instance profile
 #ec2_client = boto3.client('ec2', region_name=AWS_REGION)
