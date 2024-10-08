@@ -4,31 +4,44 @@ import time
 
 # Assume IAM Role for Boto3 session
 sts_client = boto3.client('sts')
-assumed_role_object=sts_client.assume_role(
-    RoleArn='arn:aws:iam::222634373909:role/Engineer', 
-    RoleSessionName='mysession')
+try:
+    assumed_role_object=sts_client.assume_role(
+        RoleArn='arn:aws:iam::222634373909:role/Engineer', 
+        RoleSessionName='mysession')
 
-credentials=assumed_role_object['Credentials']
-print(credentials)
-
+    credentials=assumed_role_object['Credentials']
+    print(credentials)
+except ClientError as e:
+    print("Error creating bucket:", str(e))
+except Exception as e:
+    print("Unexpected error has just occured:", str(e))
+    sys.exit()
+    
 # RDS client using assumed credentials
-rds_client = boto3.client('rds',
-    aws_access_key_id=credentials['AccessKeyId'],
-    aws_secret_access_key=credentials['SecretAccessKey'],
-    aws_session_token=credentials['SessionToken']
-)
-# Restore DB instance from snapshot
-response = rds_client.restore_db_instance_from_db_snapshot(
-    DBInstanceIdentifier='wordpressdbclixx-ecs',
-    DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
-    DBInstanceClass='db.m6gd.large',
-    AvailabilityZone='us-east-1a',
-    MultiAZ=False,
-    PubliclyAccessible=True
-)
-print("DB instance restored:", response)
+try:
+    rds_client = boto3.client('rds',
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken']
+    )
+    # Restore DB instance from snapshot
+    response = rds_client.restore_db_instance_from_db_snapshot(
+        DBInstanceIdentifier='wordpressdbclixx-ecs',
+        DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
+        DBInstanceClass='db.m6gd.large',
+        AvailabilityZone='us-east-1a',
+        MultiAZ=False,
+        PubliclyAccessible=True
+    )
+    print("DB instance restored:", response)
 
-time.sleep(300)
+    time.sleep(390)
+    
+except ClientError as e:
+    print("Error creating bucket:", str(e))
+except Exception as e:
+    print("Unexpected error has just occured:", str(e))
+    sys.exit()
 
 # EC2 instance variables
 AWS_REGION = 'us-east-1'
@@ -39,7 +52,7 @@ SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
 TARGET_GROUP_ARN = 'arn:aws:elasticloadbalancing:us-east-1:222634373909:targetgroup/CliXX-App-TG/90fae24863253e24'
 #INSTANCE_PROFILE = 'EC2-Admin'
 
-# User data script to be run on the instance
+# User data script for instance
 USER_DATA = '''#!/bin/bash -xe
 
 # Declaring Variables
@@ -61,7 +74,7 @@ sudo systemctl enable httpd
 sudo systemctl is-enabled httpd
 
 # Mounting EFS
-FILE_SYSTEM_ID=fs-0b1038c5866259742
+FILE_SYSTEM_ID=fs-03d79c23a3cdb8cd8
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAILABILITY_ZONE:0:-1}
 MOUNT_POINT=/var/www/html
@@ -145,61 +158,73 @@ echo "End of Bootstrap!" >> /var/log/userdata.log
 
 '''
 
-# Create EC2 instance
-EC2_RESOURCE = boto3.resource('ec2',
-                              aws_access_key_id=credentials['AccessKeyId'],
-                              aws_secret_access_key=credentials['SecretAccessKey'],
-                              aws_session_token=credentials['SessionToken'],
-                              region_name=AWS_REGION)
+# Creating EC2 instance
+try:
+    EC2_RESOURCE = boto3.resource('ec2',
+                                  aws_access_key_id=credentials['AccessKeyId'],
+                                  aws_secret_access_key=credentials['SecretAccessKey'],
+                                  aws_session_token=credentials['SessionToken'],
+                                  region_name=AWS_REGION)
 
-EC2_CLIENT = boto3.client('ec2', region_name=AWS_REGION)
-instance = EC2_RESOURCE.create_instances(
-    MinCount=1,
-    MaxCount=1,
-    ImageId=AMI_ID,
-    InstanceType='t2.micro',
-    KeyName=KEY_PAIR_NAME,
-    UserData=USER_DATA,
-    # Security Group and Subnet are now set via Network Interface
-    NetworkInterfaces=[
-        {
-            'AssociatePublicIpAddress': True,
-            'DeviceIndex': 0,
-            'SubnetId': SUBNET_ID,
-            'Groups': [SECURITY_GROUP_ID]
+    EC2_CLIENT = boto3.client('ec2', region_name=AWS_REGION)
+    instance = EC2_RESOURCE.create_instances(
+        MinCount=1,
+        MaxCount=1,
+        ImageId=AMI_ID,
+        InstanceType='t2.micro',
+        KeyName=KEY_PAIR_NAME,
+        UserData=USER_DATA,
+        # Security Group and Subnet set via Network Interface
+        NetworkInterfaces=[
+            {
+                'AssociatePublicIpAddress': True,
+                'DeviceIndex': 0,
+                'SubnetId': SUBNET_ID,
+                'Groups': [SECURITY_GROUP_ID]
+            }
+        ],
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [{'Key': 'Name', 'Value': 'my-ec2-instance'}]
+            }
+        ],
+        # Metadata Options for the instance
+        MetadataOptions={
+            'HttpTokens': 'optional',
+            'HttpPutResponseHopLimit': 1,
+            'HttpEndpoint': 'enabled'
         }
-    ],
-    TagSpecifications=[
-        {
-            'ResourceType': 'instance',
-            'Tags': [{'Key': 'Name', 'Value': 'my-ec2-instance'}]
-        }
-    ],
-    # Metadata Options for the instance
-    MetadataOptions={
-        'HttpTokens': 'optional',
-        'HttpPutResponseHopLimit': 1,
-        'HttpEndpoint': 'enabled'
-    }
-)[0]
-instance.wait_until_running()
+    )[0]
+    instance.wait_until_running()
+    print(f'EC2 instance {instance.id} launched.')
+    
+except ClientError as e:
+    print("Error creating bucket:", str(e))
+except Exception as e:
+    print("Unexpected error has just occured:", str(e))
+    sys.exit()
 
-print(f'EC2 instance {instance.id} launched.')
+# Registering the instance with target group
+try:
+    elbv2_client = boto3.client('elbv2', 
+                                aws_access_key_id=credentials['AccessKeyId'],
+                                aws_secret_access_key=credentials['SecretAccessKey'],
+                                aws_session_token=credentials['SessionToken'],
+                                region_name=AWS_REGION)
 
-# Register the instance with the target group
-elbv2_client = boto3.client('elbv2', 
-                            aws_access_key_id=credentials['AccessKeyId'],
-                            aws_secret_access_key=credentials['SecretAccessKey'],
-                            aws_session_token=credentials['SessionToken'],
-                            region_name=AWS_REGION)
+    response = elbv2_client.register_targets(
+        TargetGroupArn=TARGET_GROUP_ARN,
+        Targets=[{'Id': instance.id}]
+    )
+    print(f'EC2 instance {instance.id} registered with target group {TARGET_GROUP_ARN}.')
 
-response = elbv2_client.register_targets(
-    TargetGroupArn=TARGET_GROUP_ARN,
-    Targets=[{'Id': instance.id}]
-)
-
-print(f'EC2 instance {instance.id} registered with target group {TARGET_GROUP_ARN}.')
-
+except ClientError as e:
+    print("Error creating bucket:", str(e))
+except Exception as e:
+    print("Unexpected error has just occured:", str(e))
+    sys.exit()
+    
 # Attach IAM instance profile
 #ec2_client = boto3.client('ec2', region_name=AWS_REGION)
 #ec2_client.associate_iam_instance_profile(
