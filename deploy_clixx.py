@@ -74,7 +74,7 @@ sudo systemctl enable httpd
 sudo systemctl is-enabled httpd
 
 # Mounting EFS
-FILE_SYSTEM_ID=fs-00c78552591c8400c
+FILE_SYSTEM_ID=fs-0efbe6958325b73e3
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAILABILITY_ZONE:0:-1}
 MOUNT_POINT=/var/www/html
@@ -131,9 +131,8 @@ echo "Now allowing WordPress to use Permalinks..." >> /var/log/userdata.log
 sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 
 # Updating WordPress to recognize client session
-sudo sed -i "s|/\* That's all, stop editing! Happy publishing. \*/|if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) \&\& \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') { \$_SERVER['HTTPS'] = 'on'; }\n/* That's all, stop editing! Happy publishing. */|" /var/www/html/wp-config.php
+sudo sed -i 's|/\* That'"'"'s all, stop editing! Happy publishing. \*/|if (isset($_SERVER["HTTP_X_FORWARDED_PROTO"]) && $_SERVER["HTTP_X_FORWARDED_PROTO"] === "https") { $_SERVER["HTTPS"] = "on"; }\n/* That'"'"'s all, stop editing! Happy publishing. */|' /var/www/html/wp-config.php
 
- 
 # Grant file ownership of /var/www & its contents to apache user
 sudo chown -R apache /var/www
  
