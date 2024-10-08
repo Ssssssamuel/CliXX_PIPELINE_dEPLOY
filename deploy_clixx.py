@@ -35,7 +35,7 @@ try:
     )
     print("DB instance restored:", response)
 
-    time.sleep(330)
+    time.sleep(360)
     
 except ClientError as e:
     print("Error creating bucket:", str(e))
