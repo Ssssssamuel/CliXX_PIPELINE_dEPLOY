@@ -35,7 +35,7 @@ try:
     )
     print("DB instance restored:", response)
 
-    time.sleep(390)
+    time.sleep(360)
     
 except ClientError as e:
     print("Error creating bucket:", str(e))
@@ -112,7 +112,8 @@ sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/
 
 # Updating WordPress site URLs in RDS database
 echo "Running DB update statement..." >> /var/log/userdata.log
-RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%';")
+RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%';" 2>&1)
+echo $RESULT >> /var/log/userdata.log
 
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
