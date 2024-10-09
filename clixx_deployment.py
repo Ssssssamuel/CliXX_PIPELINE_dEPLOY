@@ -103,7 +103,7 @@ try:
         PerformanceMode='generalPurpose',
         Encrypted=False,
         ThroughputMode='bursting',
-        AvailabilityZoneName='us-east-1a',
+        AvailabilityZoneName=AWS_REGION,
         Backup=False,
         Tags=[
             {
