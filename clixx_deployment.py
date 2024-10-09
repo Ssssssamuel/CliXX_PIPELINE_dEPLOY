@@ -92,3 +92,69 @@ except ClientError as e:
     sys.exit()
     
 
+# Creating EFS
+try:
+    efs = boto3.client('efs',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken'])
+    response = efs.create_file_system(
+        CreationToken='myefstoken',
+        PerformanceMode='generalPurpose',
+        Encrypted=False,
+        ThroughputMode='bursting',
+        AvailabilityZoneName='us-east-1a',
+        Backup=False,
+        Tags=[
+            {
+                'Key': 'Name',
+                'Value': 'CliXX-EFS'
+            },
+        ]
+    )    
+    print(response)
+except ClientError as e:
+    print("Error creating efs:", str(e))
+    sys.exit()
+
+# Attaching security group to EFS mount targets
+efs_id = response['FileSystemId']
+
+# Getting all subnets for my VPC
+subnets = ec2.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': ['vpc-09c489f7e7f6ccbfe']}])['Subnets']
+
+# Creating a mount target for each subnet
+for subnet in subnets:
+    try:
+        mount_target_response = efs.create_mount_target(
+            FileSystemId=efs_id,
+            SubnetId=subnet['SubnetId'],
+            SecurityGroups=[security_group_id]
+        )
+        print(f"Created mount target in {subnet['AvailabilityZone']} with ID: {mount_target_response['MountTargetId']}")
+    except ClientError as e:
+        print(f"Error creating mount target in {subnet['AvailabilityZone']}: {e}")
+        
+
+# Creating Target Group
+try:
+    elbv2_client = boto3.client('elbv2', 
+                                aws_access_key_id=credentials['AccessKeyId'],
+                                aws_secret_access_key=credentials['SecretAccessKey'],
+                                aws_session_token=credentials['SessionToken'],
+                                region_name=AWS_REGION)
+    response = elbv2_client.create_target_group(
+        Name='my-target-group',
+        Protocol='HTTPS',
+        Port=443,
+        VpcId='vpc-09c489f7e7f6ccbfe',
+        HealthCheckProtocol='HTTP',
+        HealthCheckPort='80',
+        HealthCheckPath='/index.php',
+        TargetType='instance',
+    )
+    target_group_arn = response['TargetGroups'][0]['TargetGroupArn']
+    print(f"Target Group created successfully: {target_group_arn}")      
+except ClientError as e:
+    print(f"Error creating target group: {str(e)}")
+    sys.exit()
