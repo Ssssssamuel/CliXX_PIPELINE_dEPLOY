@@ -8,6 +8,7 @@ import base64
 # Global Variables
 AWS_REGION = 'us-east-1'
 SUBNET_ID = 'subnet-077c0abf304d257a5'
+SUBNET_ID1 = 'subnet-09c91fae22777bc26'
 AMI_ID = 'ami-00f251754ac5da7f0'
 
 # Assume IAM Role for Boto3 session
@@ -168,20 +169,33 @@ try:
                           aws_session_token=credentials['SessionToken'],
                           region_name=AWS_REGION)
     response = acm_client.request_certificate(
-        DomainName='dev.clixx-samuel.com',
-        ValidationMethod='EMAIL',
+        DomainName='*.clixx-samuel.com',
+        ValidationMethod='DNS',
         SubjectAlternativeNames=[
-            'www.dev.clixx-samuel.com',
+            'www.*.clixx-samuel.com',
         ],
         Tags=[
             {
                 'Key': 'Name',
                 'Value': 'CliXX-Certificate'
+            },
+            {
+                'Key': 'OwnerEmail',
+                'Value': 'samyfedyrob.sf+development@gmail.com'
             }
         ]
     )
     
     certificate_arn = response['CertificateArn']
+    certificate_details = acm_client.describe_certificate(CertificateArn=certificate_arn)
+    validation_options = certificate_details['Certificate']['DomainValidationOptions']
+
+    for option in validation_options:
+        dns_record = option['ResourceRecord']
+        print(f"Create a DNS record with the following details to validate the certificate:")
+        print(f"Name: {dns_record['Name']}")
+        print(f"Type: {dns_record['Type']}")
+        print(f"Value: {dns_record['Value']}")
     print(f"Certificate requested successfully. ARN: {certificate_arn}")
 except ClientError as e:
     print(f"Error creating Certificate: {str(e)}")
@@ -192,7 +206,7 @@ except ClientError as e:
 try:
     response = elbv2_client.create_load_balancer(
         Name='my-load-balancer',
-        Subnets=[SUBNET_ID],
+        Subnets=[SUBNET_ID, SUBNET_ID1],
         SecurityGroups=[security_group_id],
         Scheme='internet-facing',
         Type='application',
