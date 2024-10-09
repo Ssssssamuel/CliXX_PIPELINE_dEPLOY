@@ -17,10 +17,10 @@ phases:
           flag="create"
           if [[ $flag == 'create' ]]
           then
-              python deploy_clixx.py
+              python clixx_deployment.py
           elif [[ $flag == 'destroy' ]]
           then
-              python destroy_clixx.py
+              python clixx_destroy.py
           fi
   post_build:
     commands:
