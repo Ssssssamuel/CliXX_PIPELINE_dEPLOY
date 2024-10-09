@@ -112,7 +112,8 @@ try:
             },
         ]
     )    
-    print(response)
+    print(response)   
+    time.sleep (15) 
 except ClientError as e:
     print("Error creating efs:", str(e))
     sys.exit()
