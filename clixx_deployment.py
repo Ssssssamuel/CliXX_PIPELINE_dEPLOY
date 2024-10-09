@@ -158,3 +158,72 @@ try:
 except ClientError as e:
     print(f"Error creating target group: {str(e)}")
     sys.exit()
+    
+
+# Creating Certificate
+try:
+    acm_client = boto3.client('acm',
+                          aws_access_key_id=credentials['AccessKeyId'],
+                          aws_secret_access_key=credentials['SecretAccessKey'],
+                          aws_session_token=credentials['SessionToken'],
+                          region_name=AWS_REGION)
+    response = acm_client.request_certificate(
+        DomainName='dev.clixx-samuel.com',
+        ValidationMethod='EMAIL',
+        SubjectAlternativeNames=[
+            'www.dev.clixx-samuel.com',
+        ],
+        Tags=[
+            {
+                'Key': 'Name',
+                'Value': 'CliXX-Certificate'
+            }
+        ]
+    )
+    
+    certificate_arn = response['CertificateArn']
+    print(f"Certificate requested successfully. ARN: {certificate_arn}")
+except ClientError as e:
+    print(f"Error creating Certificate: {str(e)}")
+    sys.exit()
+
+
+# Creating Load Balancer
+try:
+    response = elbv2_client.create_load_balancer(
+        Name='my-load-balancer',
+        Subnets=[SUBNET_ID],
+        SecurityGroups=[security_group_id],
+        Scheme='internet-facing',
+        Type='application',
+        IpAddressType='ipv4'
+    )
+    lb_arn = response['LoadBalancers'][0]['LoadBalancerArn']
+    lb_dns = response['LoadBalancers'][0]['DNSName']
+    lb_HZ = response['LoadBalancers'][0]['CanonicalHostedZoneId']
+    print(f"Load Balancer created: {lb_arn}, DNS: {lb_dns}")
+    
+except ClientError as e:
+    print(f"Error creating load balancer: {str(e)}")
+    sys.exit()
+
+# Attaching Certificate to Load Balancer Listener
+try:
+    response = elbv2_client.create_listener(
+        LoadBalancerArn=lb_arn,
+        Protocol='HTTPS',
+        Port=443,
+        Certificates=[{'CertificateArn': certificate_arn}],
+        DefaultActions=[
+            {
+                'Type': 'forward',
+                'TargetGroupArn': target_group_arn
+            }
+        ]
+    )
+    print(f"Listener created and certificate attached: {response['Listeners'][0]['ListenerArn']}")
+except ClientError as e:
+    print(f"Error attaching certificate: {str(e)}")
+    sys.exit()
+
+
