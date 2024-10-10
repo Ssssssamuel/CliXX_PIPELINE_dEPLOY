@@ -44,45 +44,11 @@ try:
     ec2.authorize_security_group_ingress(
         GroupId=security_group_id,
         IpPermissions=[
-            # NFS (port 2049), restrict to this security group only
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 2049,
-                'ToPort': 2049,
-                'UserIdGroupPairs': [
-                    {
-                        'GroupId': security_group_id
-                    }
-                ]
-            },
-            # MySQL/Aurora (port 3306), allow from anywhere
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 3306,
-                'ToPort': 3306,
-                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-            },
-            # SSH (port 22), allow from anywhere
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 22,
-                'ToPort': 22,
-                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-            },
-            # HTTP (port 80), allow from anywhere
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 80,
-                'ToPort': 80,
-                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-            },
-            # HTTPS (port 443), allow from anywhere
-            {
-                'IpProtocol': 'tcp',
-                'FromPort': 443,
-                'ToPort': 443,
-                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-            },
+            {'IpProtocol': 'tcp', 'FromPort': 2049, 'ToPort': 2049, 'UserIdGroupPairs': [{'GroupId': security_group_id}]},
+            {'IpProtocol': 'tcp', 'FromPort': 3306, 'ToPort': 3306, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+            {'IpProtocol': 'tcp', 'FromPort': 22, 'ToPort': 22, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+            {'IpProtocol': 'tcp', 'FromPort': 80, 'ToPort': 80, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+            {'IpProtocol': 'tcp', 'FromPort': 443, 'ToPort': 443, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
         ]
     )
     
@@ -111,8 +77,12 @@ try:
                 'Value': 'CliXX-EFS'
             },
         ]
-    )    
-    print(response)   
+    )
+    
+    # Get EFS ID from the response
+    efs_id = response['FileSystemId']    
+    print(response) 
+      
     time.sleep (15) 
 except ClientError as e:
     print("Error creating efs:", str(e))
@@ -161,46 +131,6 @@ except ClientError as e:
     sys.exit()
     
 
-# Creating Certificate
-try:
-    acm_client = boto3.client('acm',
-                          aws_access_key_id=credentials['AccessKeyId'],
-                          aws_secret_access_key=credentials['SecretAccessKey'],
-                          aws_session_token=credentials['SessionToken'],
-                          region_name=AWS_REGION)
-    response = acm_client.request_certificate(
-        DomainName='*.clixx-samuel.com',
-        ValidationMethod='DNS',
-        SubjectAlternativeNames=[
-            'www.dev.clixx-samuel.com',
-        ],
-        Tags=[
-            {
-                'Key': 'Name',
-                'Value': 'CliXX-Certificate'
-            },
-            {
-                'Key': 'OwnerEmail',
-                'Value': 'samyfedyrob.sf+development@gmail.com'
-            }
-        ]
-    )
-    
-    certificate_arn = response['CertificateArn']
-    certificate_details = acm_client.describe_certificate(CertificateArn=certificate_arn)
-    validation_options = certificate_details['Certificate']['DomainValidationOptions']
-
-    for option in validation_options:
-        dns_record = option['ResourceRecord']
-        print(f"Create a DNS record with the following details to validate the certificate:")
-        print(f"Name: {dns_record['Name']}")
-        print(f"Type: {dns_record['Type']}")
-        print(f"Value: {dns_record['Value']}")
-    print(f"Certificate requested successfully. ARN: {certificate_arn}")
-except ClientError as e:
-    print(f"Error creating Certificate: {str(e)}")
-    sys.exit()
-
 
 # Creating Load Balancer
 try:
@@ -227,7 +157,7 @@ try:
         LoadBalancerArn=lb_arn,
         Protocol='HTTPS',
         Port=443,
-        Certificates=[{'CertificateArn': certificate_arn}],
+        Certificates=[{'CertificateArn': 'arn:aws:acm:us-east-1:222634373909:certificate/0fa98a61-2d96-4c25-ae03-68388e8eb588'}],
         DefaultActions=[
             {
                 'Type': 'forward',
@@ -271,7 +201,7 @@ sudo systemctl enable httpd
 sudo systemctl is-enabled httpd
 
 # Mounting EFS
-FILE_SYSTEM_ID=fs-0efbe6958325b73e3
+FILE_SYSTEM_ID=${efs_id}
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAILABILITY_ZONE:0:-1}
 MOUNT_POINT=/var/www/html
@@ -378,6 +308,7 @@ except ClientError as e:
         print(f"Error creating launch template: {str(e)}")
         sys.exit()
 
+
 # Creting Route 53 Record
 try:
         route53 = boto3.client('route53',
@@ -409,29 +340,7 @@ except ClientError as e:
     print(f"Error creating Route 53 record: {str(e)}")
     sys.exit()
         
-    
-# Restore DB instance from snapshot
-try:
-    rds_client = boto3.client('rds',
-        aws_access_key_id=credentials['AccessKeyId'],
-        aws_secret_access_key=credentials['SecretAccessKey'],
-        aws_session_token=credentials['SessionToken']
-    )
-    response = rds_client.restore_db_instance_from_db_snapshot(
-        DBInstanceIdentifier='wordpressdbclixx-ecs',
-        DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
-        DBInstanceClass='db.m6gd.large',
-        AvailabilityZone='us-east-1a',
-        MultiAZ=False,
-        PubliclyAccessible=True
-    )
-    print("DB instance restored:", response)
-
-    time.sleep(360)
-       
-except ClientError as e:
-    print("Error restoring Database:", str(e))
-    sys.exit()       
+  
 
 # Creating Auto scale
 try:
@@ -450,7 +359,7 @@ try:
             MaxSize=3,
             DesiredCapacity=1,
             TargetGroupARNs=[target_group_arn],
-            VPCZoneIdentifier=SUBNET_ID
+            VPCZoneIdentifier=f"{SUBNET_ID},{SUBNET_ID1}"
         )
         print(f"Auto Scaling Group created: {response}")
 except ClientError as e:
