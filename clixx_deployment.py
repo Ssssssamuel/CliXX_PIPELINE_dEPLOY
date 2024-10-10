@@ -115,7 +115,7 @@ try:
                                 aws_session_token=credentials['SessionToken'],
                                 region_name=AWS_REGION)
     response = elbv2_client.create_target_group(
-        Name='my-target-group',
+        Name='my-tg-group',
         Protocol='HTTPS',
         Port=443,
         VpcId='vpc-09c489f7e7f6ccbfe',
@@ -363,7 +363,6 @@ try:
 except ClientError as e:
     print("Error restoring Database:", str(e))
     sys.exit()       
-
   
 
 # Creating Auto scale
