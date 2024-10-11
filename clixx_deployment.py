@@ -203,7 +203,7 @@ sudo systemctl enable httpd
 sudo systemctl is-enabled httpd
 
 # Mounting EFS
-FILE_SYSTEM_ID={}
+FILE_SYSTEM_ID=%s
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAILABILITY_ZONE:0:-1}
 MOUNT_POINT=/var/www/html
@@ -289,7 +289,7 @@ sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=200 net.ipv4.tcp_keepalive_intv
 
 echo "End of Bootstrap!" >> /var/log/userdata.log
 
-'''.format(efs_id)
+'''%(efs_id)
 
 USER_DATA_ENCODED = base64.b64encode(USER_DATA.encode('utf-8')).decode('utf-8')
 
