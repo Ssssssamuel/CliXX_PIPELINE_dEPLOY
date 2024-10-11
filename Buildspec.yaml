@@ -20,7 +20,7 @@ phases:
               python clixx_deployment.py
           elif [[ $flag == 'destroy' ]]
           then
-              python clixx_destroy.py
+              python destroy_clixx.py
           fi
   post_build:
     commands:
