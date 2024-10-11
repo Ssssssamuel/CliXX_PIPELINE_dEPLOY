@@ -361,10 +361,12 @@ try:
     )
     print("DB instance restored:", response)
     
-    DB_id = response['DBInstance']['DBInstanceIdentifier']
+    # DB_id = response['DBInstance']['DBInstanceIdentifier']
 
-    waiter = rds_client.get_waiter('db_instance_available')
-    waiter.wait(DBInstanceIdentifier= DB_id)
+    # waiter = rds_client.get_waiter('db_instance_available')
+    # waiter.wait(DBInstanceIdentifier= DB_id)
+    
+    time.sleep(360)
        
 except ClientError as e:
     print("Error restoring Database:", str(e))
