@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import boto3,botocore
+from botocore.exceptions import ClientError
 import time
+import sys
 
 # Assume IAM Role for Boto3 session
 sts_client = boto3.client('sts')
@@ -12,9 +14,7 @@ try:
     credentials=assumed_role_object['Credentials']
     print(credentials)
 except ClientError as e:
-    print("Error creating bucket:", str(e))
-except Exception as e:
-    print("Unexpected error has just occured:", str(e))
+    print("Error assuming role:", str(e))
     sys.exit()
     
 # RDS client using assumed credentials
@@ -38,9 +38,7 @@ try:
     time.sleep(360)
     
 except ClientError as e:
-    print("Error creating bucket:", str(e))
-except Exception as e:
-    print("Unexpected error has just occured:", str(e))
+    print("Error restoring Database:", str(e))
     sys.exit()
 
 # EC2 instance variables
@@ -50,7 +48,6 @@ AMI_ID = 'ami-00f251754ac5da7f0'
 SUBNET_ID = 'subnet-077c0abf304d257a5'
 SECURITY_GROUP_ID = 'sg-05048737fb0f14c99'
 TARGET_GROUP_ARN = 'arn:aws:elasticloadbalancing:us-east-1:222634373909:targetgroup/CliXX-App-TG/90fae24863253e24'
-#INSTANCE_PROFILE = 'EC2-Admin'
 
 # User data script for instance
 USER_DATA = '''#!/bin/bash -xe
@@ -59,7 +56,7 @@ USER_DATA = '''#!/bin/bash -xe
 DB_NAME="wordpressdb"
 DB_USER="wordpressuser"
 DB_PASS="W3lcome123"
-LB_DNS="http://dev.clixx-samuel.com"
+DNS="dev.clixx-samuel.com"
 EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
 
 exec > >(tee -a /var/log/userdata.log) 2>&1
@@ -102,7 +99,7 @@ echo $RESULT >> /var/log/userdata.log
 if [[ -n "$RESULT" ]]; then
     echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
     mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
-UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%';
+UPDATE wp_options SET option_value ="$DNS" WHERE option_value LIKE 'CliXX-APP-NLB%';
 EOF
     echo "UPDATE query executed." >> /var/log/userdata.log
 else
@@ -180,9 +177,7 @@ try:
     print(f'EC2 instance {instance.id} launched.')
     
 except ClientError as e:
-    print("Error creating bucket:", str(e))
-except Exception as e:
-    print("Unexpected error has just occured:", str(e))
+    print("Error creating EC2 instance:", str(e))
     sys.exit()
 
 # Registering the instance with target group
@@ -200,15 +195,6 @@ try:
     print(f'EC2 instance {instance.id} registered with target group {TARGET_GROUP_ARN}.')
 
 except ClientError as e:
-    print("Error creating bucket:", str(e))
-except Exception as e:
-    print("Unexpected error has just occured:", str(e))
+    print("Error registering inmstance with Target Group:", str(e))
     sys.exit()
     
-# Attach IAM instance profile
-#ec2_client = boto3.client('ec2', region_name=AWS_REGION)
-#ec2_client.associate_iam_instance_profile(
-#    IamInstanceProfile={'Name': INSTANCE_PROFILE},
-#    InstanceId=instance.id
-#)
-#print(f'Instance Profile "{INSTANCE_PROFILE}" attached to instance {instance.id}.')
