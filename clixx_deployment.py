@@ -5,6 +5,7 @@ import time
 import sys
 import base64
 
+
 # Global Variables
 AWS_REGION = 'us-east-1'
 SUBNET_ID = 'subnet-077c0abf304d257a5'
@@ -22,6 +23,7 @@ try:
     print(credentials)
 except ClientError as e:
     print("Error Assuming role:", str(e))
+    sys.exit()
  
     
 
@@ -89,8 +91,6 @@ except ClientError as e:
     sys.exit()
 
 # Attaching security group to EFS mount targets
-efs_id = response['FileSystemId']
-
 # Getting all subnets for my VPC
 subnets = ec2.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': ['vpc-09c489f7e7f6ccbfe']}])['Subnets']
 
@@ -105,6 +105,7 @@ for subnet in subnets:
         print(f"Created mount target in {subnet['AvailabilityZone']} with ID: {mount_target_response['MountTargetId']}")
     except ClientError as e:
         print(f"Error creating mount target in {subnet['AvailabilityZone']}: {e}")
+        sys.exit()
         
 
 # Creating Target Group
@@ -309,7 +310,7 @@ except ClientError as e:
         sys.exit()
 
 
-# Creting Route 53 Record
+# Creating Route 53 Record
 try:
         route53 = boto3.client('route53',
             aws_access_key_id=credentials['AccessKeyId'],
@@ -357,8 +358,11 @@ try:
         PubliclyAccessible=True
     )
     print("DB instance restored:", response)
+    
+    DB_id = response['DBInstance']['DBInstanceIdentifier']
 
-    time.sleep(360)
+    waiter = rds_client.get_waiter('db_instance_available')
+    waiter.wait(DBInstanceIdentifier= DB_id)
        
 except ClientError as e:
     print("Error restoring Database:", str(e))
@@ -387,4 +391,23 @@ try:
         print(f"Auto Scaling Group created: {response}")
 except ClientError as e:
     print(f"Error creating Auto Scaling Group: {str(e)}")
+    sys.exit()
+
+# Storing values in SSM
+try:
+    ssm = boto3.client('ssm',
+                   aws_access_key_id=credentials['AccessKeyId'],
+                   aws_secret_access_key=credentials['SecretAccessKey'],
+                   aws_session_token=credentials['SessionToken'])
+    
+    ssm.put_parameter(Name='/myapp/DB_id', Value=DB_id, Type='String', Overwrite=True)
+    ssm.put_parameter(Name='/myapp/lb_dns', Value=lb_dns, Type='String', Overwrite=True)
+    ssm.put_parameter(Name='/myapp/lb_arn', Value=lb_arn, Type='String', Overwrite=True)
+    ssm.put_parameter(Name='/myapp/target_group_arn', Value=target_group_arn, Type='String', Overwrite=True)
+    ssm.put_parameter(Name='/myapp/efs_id', Value=efs_id, Type='String', Overwrite=True)
+    ssm.put_parameter(Name='/myapp/security_group_id', Value=security_group_id, Type='String', Overwrite=True)
+
+    print("Resource details saved to SSM Parameter Store")
+except ClientError as e:
+    print(f"Error saving to SSM Parameter Store: {str(e)}")
     sys.exit()
