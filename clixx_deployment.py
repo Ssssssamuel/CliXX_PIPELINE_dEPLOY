@@ -241,14 +241,14 @@ sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/
 
 # Updating WordPress site URLs in RDS database
 echo "Running DB update statement..." >> /var/log/userdata.log
-RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%';" 2>&1)
+RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
 echo $RESULT >> /var/log/userdata.log
 
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
     echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
     mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
-UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%';
+UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%%';
 EOF
     echo "UPDATE query executed." >> /var/log/userdata.log
 else
@@ -289,7 +289,7 @@ sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=200 net.ipv4.tcp_keepalive_intv
 
 echo "End of Bootstrap!" >> /var/log/userdata.log
 
-'''%(efs_id)
+''' % (efs_id)
 
 USER_DATA_ENCODED = base64.b64encode(USER_DATA.encode('utf-8')).decode('utf-8')
 
