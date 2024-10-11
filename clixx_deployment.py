@@ -33,6 +33,7 @@ try:
                        aws_access_key_id=credentials['AccessKeyId'],
                        aws_secret_access_key=credentials['SecretAccessKey'],
                        aws_session_token=credentials['SessionToken'])
+    
     response = ec2.create_security_group(
         Description='My security group',
         GroupName='my-security-group',
@@ -303,7 +304,7 @@ try:
                 'UserData': USER_DATA_ENCODED
                 }
         )
-        launch_temp_id = response['LaunchTemplateId']
+        launch_temp_id = response['LaunchTemplate']['LaunchTemplateId']
         print(f"Launch Template created: {response['LaunchTemplate']['LaunchTemplateId']}")
 except ClientError as e:
         print(f"Error creating launch template: {str(e)}")
