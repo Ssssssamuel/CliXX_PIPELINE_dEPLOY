@@ -73,37 +73,50 @@ def get_ssm_parameter(**args):
         print(f"Error retrieving SSM parameter {var1}: {str(e)}")
         return None
 
-# Delete Route 53 record with dynamic domain name
+# Deleting Route 53 record with dynamic domain name
 def delete_route53_record(**args):
     var1 = args.get('var1')
     try:
-        H_Z = 'Z01063533B95XIB5GVOHL'  # Hosted Zone ID
+        H_Z = 'Z01063533B95XIB5GVOHL' 
         LB_DNS = get_ssm_parameter(var1='/myapp/{}'.format(var1))
 
-        response = route53.change_resource_record_sets(
+        # Getting the existing record set
+        existing_record = route53.list_resource_record_sets(
             HostedZoneId=H_Z,
-            ChangeBatch={
-                'Changes': [
-                    {
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': 'dev.clixx-samuel.com',
-                            'Type': 'A',
-                            'AliasTarget': {
-                                'HostedZoneId': H_Z,
-                                'DNSName': LB_DNS,
-                                'EvaluateTargetHealth': False
-                            }
-                        }
-                    }
-                ]
-            }
+            StartRecordName='dev.clixx-samuel.com',
+            StartRecordType='A',
+            MaxItems="1"
         )
-        print(f"Deleted Route 53 record")
+
+        # Checking if the record exists and matches the expected values
+        if existing_record['ResourceRecordSets']:
+            current_record = existing_record['ResourceRecordSets'][0]
+            current_dns_name = current_record.get('AliasTarget', {}).get('DNSName')
+
+            if current_dns_name == LB_DNS:
+                # Proceeding with deleting record
+                response = route53.change_resource_record_sets(
+                    HostedZoneId=H_Z,
+                    ChangeBatch={
+                        'Changes': [
+                            {
+                                'Action': 'DELETE',
+                                'ResourceRecordSet': current_record
+                            }
+                        ]
+                    }
+                )
+                print(f"Deleted Route 53 record for {current_record['Name']}")
+            else:
+                print(f"DNS name mismatch: Current DNS {current_dns_name}, expected {LB_DNS}")
+        else:
+            print("No matching Route 53 record found.")
+            
     except ClientError as e:
         print(f"Error deleting Route 53 record: {str(e)}")
 
-# Deleting load balancer and target group with error handling
+
+# Deleting load balancer and target group
 def delete_load_balancer_and_target_group(**args):
     var1 = args.get('var1')
     var2 = args.get('var2')
@@ -135,19 +148,35 @@ def delete_load_balancer_and_target_group(**args):
     except ClientError as e:
         print(f"Error deleting load balancer or target group: {str(e)}")
 
-# Deleting EFS
+# Deleting EFS along with its mount targets
 def delete_efs(**args):
     var1 = args.get('var1')
     try:
+        # Getting EFS ID from SSM parameter store
         F_S = get_ssm_parameter(var1='/myapp/{}'.format(var1))
         if not F_S:
             print(f"Could not retrieve EFS ID, skipping deletion.")
             return
 
+        # Listing and deleting mount targets for EFS
+        mount_targets = efs.describe_mount_targets(FileSystemId=F_S)
+        for mount_target in mount_targets['MountTargets']:
+            mount_target_id = mount_target['MountTargetId']
+            efs.delete_mount_target(MountTargetId=mount_target_id)
+            print(f"Deleted mount target: {mount_target_id}")
+
+        # Waiting for mount targets to be fully deleted
+        waiter = efs.get_waiter('mount_target_deleted')
+        waiter.wait(FileSystemId=F_S)
+        print(f"All mount targets for EFS {F_S} deleted.")
+
+        # Deleting EFS file system
         efs.delete_file_system(FileSystemId=F_S)
         print(f"Deleted EFS: {F_S}")
+
     except ClientError as e:
         print(f"Error deleting EFS: {str(e)}")
+
 
 # Deleting security group
 def delete_security_group(**args):
@@ -217,7 +246,7 @@ def delete_auto_scaling_group():
         print(f"Set desired capacity to 0 for Auto Scaling Group: {'my-auto-scaling-group'}")
 
         # Wait for instances to terminate
-        wait_for_instance_termination(autoscaling, A_S_G)
+        wait_for_instance_termination(autoscaling.A_S_G)
 
         # Deleting Auto Scaling Group
         autoscaling.delete_auto_scaling_group(
@@ -233,9 +262,10 @@ def delete_auto_scaling_group():
 if __name__ == "__main__":
     # Calling deletion functions
     delete_route53_record(var1='lb_dns')
-    delete_load_balancer_and_target_group(var1='load_balancer_arn', var2='target_group_arn')
+    delete_load_balancer_and_target_group(var1='lb_arn', var2='target_group_arn')
     delete_efs(var1='efs_id')
     delete_security_group(var1='security_group_id')
     delete_rds_instance()
+    wait_for_instance_termination(autoscaling)
     delete_launch_template()
     delete_auto_scaling_group()
