@@ -289,7 +289,9 @@ sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=200 net.ipv4.tcp_keepalive_intv
 
 echo "End of Bootstrap!" >> /var/log/userdata.log
 
-'''%(efs_id).encode('utf-8').decode('utf-8')
+'''%(efs_id)
+
+USER_DATA_ENCODED = base64.b64encode(USER_DATA.encode('utf-8')).decode('utf-8')
 
 try:       
         response = ec2.create_launch_template(
@@ -300,7 +302,7 @@ try:
                 'InstanceType': 't2.micro',
                 'KeyName': 'my-key-pair',
                 'SecurityGroupIds': [security_group_id],
-                'UserData': USER_DATA
+                'UserData': USER_DATA_ENCODED
                 }
         )
         launch_temp_id = response['LaunchTemplate']['LaunchTemplateId']
