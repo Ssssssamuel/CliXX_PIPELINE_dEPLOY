@@ -72,6 +72,16 @@ def get_ssm_parameter(**args):
     except ClientError as e:
         print(f"Error retrieving SSM parameter {var1}: {str(e)}")
         return None
+    
+ # Deleting Keypair
+def delete_keyepair():
+    try:
+        response = ec2.delete_key_pair(KeyName='my-key-pair')
+        print(f"Key Pair deleted: {response['KeyName']}")
+    except ClientError as e:
+        print(f"Error deleting key pair: {str(e)}")
+        
+   
 
 # Deleting Route 53 record with dynamic domain name
 def delete_route53_record(**args):
@@ -251,6 +261,7 @@ def delete_auto_scaling_group():
             ForceDelete=True
         )
         print(f"Deleted Auto Scaling Group: {A_S_G}")
+        time.sleep(90)
         
     except ClientError as e:
         print(f"Error deleting Auto Scaling Group: {str(e)}")
@@ -265,4 +276,5 @@ if __name__ == "__main__":
     #wait_for_instance_termination(autoscaling)
     delete_launch_template()
     delete_auto_scaling_group()
+    delete_keyepair()
     delete_security_group(var1='security_group_id')
