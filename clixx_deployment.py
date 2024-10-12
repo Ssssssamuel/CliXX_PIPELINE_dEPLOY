@@ -260,10 +260,10 @@ echo "Now allowing WordPress to use Permalinks..." >> /var/log/userdata.log
 sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 
 # Updating WordPress to recognize client session
-config='if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-    $_SERVER['HTTPS'] = 'on';
-}'
-sed -i '10s/.*/${config}/' /var/www/html/wp-config.php
+#config='if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+#    $_SERVER['HTTPS'] = 'on';
+#}'
+#sed -i '10s/.*/${config}/' /var/www/html/wp-config.php
 
 # Grant file ownership of /var/www & its contents to apache user
 sudo chown -R apache /var/www
