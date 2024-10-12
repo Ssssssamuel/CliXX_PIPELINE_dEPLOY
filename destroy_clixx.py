@@ -195,7 +195,7 @@ def delete_security_group(**args):
 # Deleting RDS instance
 def delete_rds_instance():
     try:
-        DB_id = get_ssm_parameter(var1='/myapp/DB_id') 
+        DB_id = get_ssm_parameter('/myapp/DB_id') 
         if not DB_id:
             print(f"Could not retrieve RDS instance ID, skipping deletion.")
             return
@@ -261,11 +261,11 @@ def delete_auto_scaling_group():
 
 if __name__ == "__main__":
     # Calling deletion functions
+    delete_rds_instance()
     delete_route53_record(var1='lb_dns')
     delete_load_balancer_and_target_group(var1='lb_arn', var2='target_group_arn')
     delete_efs(var1='efs_id')
-    delete_security_group(var1='security_group_id')
-    delete_rds_instance()
-    wait_for_instance_termination(autoscaling)
+    #wait_for_instance_termination(autoscaling)
     delete_launch_template()
     delete_auto_scaling_group()
+    delete_security_group(var1='security_group_id')
