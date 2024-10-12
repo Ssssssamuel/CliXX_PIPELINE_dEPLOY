@@ -248,7 +248,7 @@ echo $RESULT >> /var/log/userdata.log
 if [[ -n "$RESULT" ]]; then
     echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
     mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
-UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%%';
+UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%';
 EOF
     echo "UPDATE query executed." >> /var/log/userdata.log
 else
@@ -260,11 +260,10 @@ echo "Now allowing WordPress to use Permalinks..." >> /var/log/userdata.log
 sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 
 # Updating WordPress to recognize client session
-#sudo sed -i 's|/\* That'\''s all, stop editing! Happy publishing. \*/|if (isset($_SERVER["HTTP_X_FORWARDED_PROTO"]) && $_SERVER["HTTP_X_FORWARDED_PROTO"] === "https") { $_SERVER["HTTPS"] = "on"; } /* That'\''s all, stop editing! Happy publishing. */|' /var/www/html/wp-config.php
-echo 'if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+config='if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
     $_SERVER['HTTPS'] = 'on';
-}' | sudo tee -a /var/www/html/wp-config.php
-echo '/* That's all, stop editing! Happy publishing. */' | sudo tee -a /var/www/html/wp-config.php
+}'
+sed -i '10s/.*/${config}/' /var/www/html/wp-config.php
 
 # Grant file ownership of /var/www & its contents to apache user
 sudo chown -R apache /var/www
@@ -361,7 +360,7 @@ try:
     )
     print("DB instance restored:", response)
     
-    # DB_id = response['DBInstance']['DBInstanceIdentifier']
+    DB_id = response['DBInstance']['DBInstanceIdentifier']
 
     # waiter = rds_client.get_waiter('db_instance_available')
     # waiter.wait(DBInstanceIdentifier= DB_id)
