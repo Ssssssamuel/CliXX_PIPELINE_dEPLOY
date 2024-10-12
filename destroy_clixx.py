@@ -74,12 +74,13 @@ def get_ssm_parameter(**args):
         return None
     
  # Deleting Keypair
-def delete_keyepair():
+def delete_key_pair():
     try:
-        response = ec2.delete_key_pair(KeyName='my-key-pair')
-        print(f"Key Pair deleted: {response['KeyName']}")
+        ec2.delete_key_pair(KeyName='my-key-pair')
+        print("Key Pair 'my-key-pair' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting key pair: {str(e)}")
+
         
    
 
