@@ -93,22 +93,19 @@ def delete_route53_record(**args):
             current_record = existing_record['ResourceRecordSets'][0]
             current_dns_name = current_record.get('AliasTarget', {}).get('DNSName')
 
-            if current_dns_name == LB_DNS:
-                # Proceeding with deleting record
-                response = route53.change_resource_record_sets(
-                    HostedZoneId=H_Z,
-                    ChangeBatch={
-                        'Changes': [
-                            {
-                                'Action': 'DELETE',
-                                'ResourceRecordSet': current_record
-                            }
-                        ]
-                    }
-                )
-                print(f"Deleted Route 53 record for {current_record['Name']}")
-            else:
-                print(f"DNS name mismatch: Current DNS {current_dns_name}, expected {LB_DNS}")
+            # Proceeding with deleting record
+            response = route53.change_resource_record_sets(
+                HostedZoneId=H_Z,
+                ChangeBatch={
+                    'Changes': [
+                        {
+                            'Action': 'DELETE',
+                            'ResourceRecordSet': current_record
+                        }
+                    ]
+                }
+            )
+            print(f"Deleted Route 53 record: {response}")
         else:
             print("No matching Route 53 record found.")
             
@@ -165,10 +162,10 @@ def delete_efs(**args):
             efs.delete_mount_target(MountTargetId=mount_target_id)
             print(f"Deleted mount target: {mount_target_id}")
 
-        # Waiting for mount targets to be fully deleted
-        waiter = efs.get_waiter('mount_target_deleted')
-        waiter.wait(FileSystemId=F_S)
-        print(f"All mount targets for EFS {F_S} deleted.")
+        # # Waiting for mount targets to be fully deleted
+        # waiter = efs.get_waiter('mount_target_deleted')
+        # waiter.wait(FileSystemId=F_S)
+        # print(f"All mount targets for EFS {F_S} deleted.")
 
         # Deleting EFS file system
         efs.delete_file_system(FileSystemId=F_S)
@@ -246,7 +243,7 @@ def delete_auto_scaling_group():
         print(f"Set desired capacity to 0 for Auto Scaling Group: {'my-auto-scaling-group'}")
 
         # Wait for instances to terminate
-        wait_for_instance_termination(autoscaling.A_S_G)
+        #wait_for_instance_termination(autoscaling.A_S_G)
 
         # Deleting Auto Scaling Group
         autoscaling.delete_auto_scaling_group(
