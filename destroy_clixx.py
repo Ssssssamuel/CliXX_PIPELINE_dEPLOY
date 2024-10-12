@@ -195,7 +195,7 @@ def delete_security_group(**args):
 # Deleting RDS instance
 def delete_rds_instance():
     try:
-        DB_id = get_ssm_parameter('/myapp/DB_id') 
+        DB_id = get_ssm_parameter(var1 = '/myapp/DB_id') 
         if not DB_id:
             print(f"Could not retrieve RDS instance ID, skipping deletion.")
             return
