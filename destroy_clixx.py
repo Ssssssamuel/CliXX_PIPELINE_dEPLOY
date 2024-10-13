@@ -82,7 +82,6 @@ def delete_key_pair():
         print(f"Error deleting key pair: {str(e)}")
 
         
-   
 
 # Deleting Route 53 record with dynamic domain name
 def delete_route53_record(**args):
@@ -277,5 +276,5 @@ if __name__ == "__main__":
     #wait_for_instance_termination(autoscaling)
     delete_launch_template()
     delete_auto_scaling_group()
-    delete_keyepair()
+    delete_key_pair()
     delete_security_group(var1='security_group_id')
