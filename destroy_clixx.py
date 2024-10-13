@@ -172,7 +172,7 @@ def delete_efs(**args):
             efs.delete_mount_target(MountTargetId=mount_target_id)
             print(f"Deleted mount target: {mount_target_id}")
 
-        time.slee(15)
+        time.sleep(15)
         
         # Deleting EFS file system
         efs.delete_file_system(FileSystemId=F_S)
