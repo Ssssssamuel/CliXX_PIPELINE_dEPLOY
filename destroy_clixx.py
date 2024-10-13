@@ -172,11 +172,8 @@ def delete_efs(**args):
             efs.delete_mount_target(MountTargetId=mount_target_id)
             print(f"Deleted mount target: {mount_target_id}")
 
-        # # Waiting for mount targets to be fully deleted
-        # waiter = efs.get_waiter('mount_target_deleted')
-        # waiter.wait(FileSystemId=F_S)
-        # print(f"All mount targets for EFS {F_S} deleted.")
-
+        time.slee(15)
+        
         # Deleting EFS file system
         efs.delete_file_system(FileSystemId=F_S)
         print(f"Deleted EFS: {F_S}")
@@ -273,7 +270,6 @@ if __name__ == "__main__":
     delete_route53_record(var1='lb_dns')
     delete_load_balancer_and_target_group(var1='lb_arn', var2='target_group_arn')
     delete_efs(var1='efs_id')
-    #wait_for_instance_termination(autoscaling)
     delete_launch_template()
     delete_auto_scaling_group()
     delete_key_pair()

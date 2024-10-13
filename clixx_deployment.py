@@ -182,7 +182,7 @@ except ClientError as e:
         sys.exit()
 
 # Creating  Launch Template
-USER_DATA = '''#!/bin/bash -xe
+USER_DATA = '''#!/bin/bash
 
 # Declaring Variables
 DB_NAME="wordpressdb"
@@ -236,8 +236,6 @@ else
     cp -r CliXX_Retail_Repository/* /var/www/html
 fi 
 
-# Replacing localhost URLs with RDS Endpoint in wp-config.php
-sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/html/wp-config.php
 
 # Updating WordPress site URLs in RDS database
 echo "Running DB update statement..." >> /var/log/userdata.log
@@ -254,16 +252,22 @@ EOF
 else
     echo "No matching values found. Skipping update..." >> /var/log/userdata.log
 fi
- 
+
 # Allow WordPress to use Permalinks
 echo "Now allowing WordPress to use Permalinks..." >> /var/log/userdata.log
 sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 
-# Updating WordPress to recognize client session
-#config='if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-#    $_SERVER['HTTPS'] = 'on';
-#}'
-#sed -i '10s/.*/${config}/' /var/www/html/wp-config.php
+# Replacing localhost URLs with RDS Endpoint in wp-config.php
+sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/html/wp-config.php
+
+
+# Define the configuration to update the WordPress file
+config="if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    \$_SERVER['HTTPS'] = 'on';
+}"
+
+sudo sed -i "10s|.*|${config}|" /var/www/html/wp-config.php
+
 
 # Grant file ownership of /var/www & its contents to apache user
 sudo chown -R apache /var/www
