@@ -261,12 +261,12 @@ sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/html/wp-config.php
 
 
-# Define the configuration to update the WordPress file
-config="if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-    \$_SERVER['HTTPS'] = 'on';
-}"
+# # Define the configuration to update the WordPress file
+# config="if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+#     \$_SERVER['HTTPS'] = 'on';
+# }"
 
-sudo sed -i "10s|.*|${config}|" /var/www/html/wp-config.php
+#sudo sed -i "10s|.*|${config}|" /var/www/html/wp-config.php
 
 
 # Grant file ownership of /var/www & its contents to apache user
