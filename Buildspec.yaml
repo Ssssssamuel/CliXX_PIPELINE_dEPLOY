@@ -15,7 +15,7 @@ phases:
       - echo "Creating CliXX Security Group for apps and database"
       - |
           flag="create"
-          if [[ $flag == 'create' ]]
+          if [[ $flag == 'delete' ]]
           then
               python clixx_deployment.py
           elif [[ $flag == 'destroy' ]]
