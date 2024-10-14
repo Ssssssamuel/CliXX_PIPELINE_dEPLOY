@@ -63,7 +63,7 @@ autoscaling = boto3.client('autoscaling',
                    aws_session_token=credentials['SessionToken'],
                    region_name=AWS_REGION)
 
-# Retrieving parameters from SSM with error handling
+# Retrieving parameters from SSM
 def get_ssm_parameter(**args):
     var1 = args.get('var1')
     try:
@@ -222,19 +222,19 @@ def delete_launch_template():
     except ClientError as e:
         print(f"Error deleting Launch Template: {str(e)}")
 
-# Waiting for all instances in the Auto Scaling Group to terminate
-def wait_for_instance_termination(autoscaling):
-    A_S_G = 'my-auto-scaling-group'
-    while True:
-        response = autoscaling.describe_auto_scaling_groups(
-            AutoScalingGroupNames=[A_S_G]
-        )
-        instances = response['AutoScalingGroups'][0]['Instances']
-        if all(instance['LifecycleState'] == 'Terminated' for instance in instances):
-            print(f"All instances in Auto Scaling Group {A_S_G} are terminated.")
-            break
-        print(f"Waiting for instances in {A_S_G} to terminate...")
-        time.sleep(15)
+# # Waiting for all instances in the Auto Scaling Group to terminate
+# def wait_for_instance_termination(autoscaling):
+#     A_S_G = 'my-auto-scaling-group'
+#     while True:
+#         response = autoscaling.describe_auto_scaling_groups(
+#             AutoScalingGroupNames=[A_S_G]
+#         )
+#         instances = response['AutoScalingGroups'][0]['Instances']
+#         if all(instance['LifecycleState'] == 'Terminated' for instance in instances):
+#             print(f"All instances in Auto Scaling Group {A_S_G} are terminated.")
+#             break
+#         print(f"Waiting for instances in {A_S_G} to terminate...")
+#         time.sleep(15)
 
 # Deleting Auto Scaling Group
 def delete_auto_scaling_group():
@@ -248,9 +248,6 @@ def delete_auto_scaling_group():
             DesiredCapacity=0
         )
         print(f"Set desired capacity to 0 for Auto Scaling Group: {'my-auto-scaling-group'}")
-
-        # Wait for instances to terminate
-        #wait_for_instance_termination(autoscaling.A_S_G)
 
         # Deleting Auto Scaling Group
         autoscaling.delete_auto_scaling_group(
@@ -267,10 +264,10 @@ def delete_auto_scaling_group():
 if __name__ == "__main__":
     # Calling deletion functions
     delete_rds_instance()
-    delete_route53_record(var1='lb_dns')
-    delete_load_balancer_and_target_group(var1='lb_arn', var2='target_group_arn')
-    delete_efs(var1='efs_id')
+    delete_route53_record(var1='LOAD_BALANCER_DNS')
+    delete_load_balancer_and_target_group(var1='lb_arn', var2='TARGET_GROUP_ARN')
+    delete_efs(var1='EFS_ID')
     delete_launch_template()
     delete_auto_scaling_group()
     delete_key_pair()
-    delete_security_group(var1='security_group_id')
+    delete_security_group(var1='SECURITY_GROUP_ID')
