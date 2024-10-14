@@ -88,7 +88,7 @@ def delete_route53_record(**args):
     var1 = args.get('var1')
     try:
         H_Z = 'Z01063533B95XIB5GVOHL' 
-        LB_DNS = get_ssm_parameter(var1='{}'.format(var1))
+        LB_DNS = get_ssm_parameter(var1='/myapp/{}'.format(var1))
 
         # Getting the existing record set
         existing_record = route53.list_resource_record_sets(
@@ -128,7 +128,7 @@ def delete_load_balancer_and_target_group(**args):
     var1 = args.get('var1')
     var2 = args.get('var2')
     try:
-        L_B = get_ssm_parameter(var1='{}'.format(var1))
+        L_B = get_ssm_parameter(var1='/myapp/{}'.format(var1))
         if not L_B:
             print(f"Could not retrieve Load Balancer ARN, skipping deletion.")
             return
@@ -144,7 +144,7 @@ def delete_load_balancer_and_target_group(**args):
         print(f"Deleted load balancer: {L_B}")
 
         # Deleting the target group
-        T_G = get_ssm_parameter(var1='{}'.format(var2))
+        T_G = get_ssm_parameter(var1='/myapp/{}'.format(var2))
         if not T_G:
             print(f"Could not retrieve Target Group ARN, skipping deletion.")
             return
@@ -160,7 +160,7 @@ def delete_efs(**args):
     var1 = args.get('var1')
     try:
         # Getting EFS ID from SSM parameter store
-        F_S = get_ssm_parameter(var1='{}'.format(var1))
+        F_S = get_ssm_parameter(var1='/myapp/{}'.format(var1))
         if not F_S:
             print(f"Could not retrieve EFS ID, skipping deletion.")
             return
@@ -186,7 +186,7 @@ def delete_efs(**args):
 def delete_security_group(**args):
     var1 = args.get('var1')
     try:
-        S_G = get_ssm_parameter(var1='{}'.format(var1))
+        S_G = get_ssm_parameter(var1='/myapp/{}'.format(var1))
         if not S_G:
             print(f"Could not retrieve security group ID, skipping deletion.")
             return
@@ -199,7 +199,7 @@ def delete_security_group(**args):
 # Deleting RDS instance
 def delete_rds_instance():
     try:
-        DB_id = get_ssm_parameter(var1 = 'DB_id') 
+        DB_id = get_ssm_parameter(var1 = '/myapp/DB_id') 
         if not DB_id:
             print(f"Could not retrieve RDS instance ID, skipping deletion.")
             return
@@ -264,10 +264,10 @@ def delete_auto_scaling_group():
 if __name__ == "__main__":
     # Calling deletion functions
     delete_rds_instance()
-    delete_route53_record(var1='LOAD_BALANCER_DNS')
-    delete_load_balancer_and_target_group(var1='lb_arn', var2='TARGET_GROUP_ARN')
-    delete_efs(var1='EFS_ID')
+    delete_route53_record(var1='lb_dns')
+    delete_load_balancer_and_target_group(var1='lb_arn', var2='target_group_arn')
+    delete_efs(var1='efs_id')
     delete_launch_template()
     delete_auto_scaling_group()
     delete_key_pair()
-    delete_security_group(var1='SECURITY_GROUP_ID')
+    delete_security_group(var1='security_group_id')
