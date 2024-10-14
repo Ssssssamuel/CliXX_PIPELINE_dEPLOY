@@ -222,20 +222,6 @@ def delete_launch_template():
     except ClientError as e:
         print(f"Error deleting Launch Template: {str(e)}")
 
-# # Waiting for all instances in the Auto Scaling Group to terminate
-# def wait_for_instance_termination(autoscaling):
-#     A_S_G = 'my-auto-scaling-group'
-#     while True:
-#         response = autoscaling.describe_auto_scaling_groups(
-#             AutoScalingGroupNames=[A_S_G]
-#         )
-#         instances = response['AutoScalingGroups'][0]['Instances']
-#         if all(instance['LifecycleState'] == 'Terminated' for instance in instances):
-#             print(f"All instances in Auto Scaling Group {A_S_G} are terminated.")
-#             break
-#         print(f"Waiting for instances in {A_S_G} to terminate...")
-#         time.sleep(15)
-
 # Deleting Auto Scaling Group
 def delete_auto_scaling_group():
     try:   
@@ -248,14 +234,14 @@ def delete_auto_scaling_group():
             DesiredCapacity=0
         )
         print(f"Set desired capacity to 0 for Auto Scaling Group: {'my-auto-scaling-group'}")
-
+        
+        time.sleep(100)
         # Deleting Auto Scaling Group
         autoscaling.delete_auto_scaling_group(
             AutoScalingGroupName=A_S_G,
             ForceDelete=True
         )
         print(f"Deleted Auto Scaling Group: {A_S_G}")
-        time.sleep(90)
         
     except ClientError as e:
         print(f"Error deleting Auto Scaling Group: {str(e)}")

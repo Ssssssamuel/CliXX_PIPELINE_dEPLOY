@@ -132,7 +132,29 @@ except ClientError as e:
     print(f"Error creating target group: {str(e)}")
     sys.exit()
     
-
+# Restore DB instance from snapshot
+try:
+    rds_client = boto3.client('rds',
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken']
+    )
+    response = rds_client.restore_db_instance_from_db_snapshot(
+        DBInstanceIdentifier='wordpressdbclixx-ecs',
+        DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
+        DBInstanceClass='db.m6gd.large',
+        AvailabilityZone='us-east-1a',
+        MultiAZ=False,
+        PubliclyAccessible=True
+    )
+    print("DB instance restored:", response)
+    
+    DB_id = response['DBInstance']['DBInstanceIdentifier']
+    
+       
+except ClientError as e:
+    print("Error restoring Database:", str(e))
+    sys.exit() 
 
 # Creating Load Balancer
 try:
@@ -344,40 +366,12 @@ try:
         print(f"Route 53 record created: {response}")
 except ClientError as e:
     print(f"Error creating Route 53 record: {str(e)}")
-    sys.exit()
-        
-  
-# Restore DB instance from snapshot
-try:
-    rds_client = boto3.client('rds',
-        aws_access_key_id=credentials['AccessKeyId'],
-        aws_secret_access_key=credentials['SecretAccessKey'],
-        aws_session_token=credentials['SessionToken']
-    )
-    response = rds_client.restore_db_instance_from_db_snapshot(
-        DBInstanceIdentifier='wordpressdbclixx-ecs',
-        DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
-        DBInstanceClass='db.m6gd.large',
-        AvailabilityZone='us-east-1a',
-        MultiAZ=False,
-        PubliclyAccessible=True
-    )
-    print("DB instance restored:", response)
-    
-    DB_id = response['DBInstance']['DBInstanceIdentifier']
-
-    # waiter = rds_client.get_waiter('db_instance_available')
-    # waiter.wait(DBInstanceIdentifier= DB_id)
-    
-    time.sleep(390)
-       
-except ClientError as e:
-    print("Error restoring Database:", str(e))
-    sys.exit()       
+    sys.exit()      
   
 
 # Creating Auto scale
 try:
+        time.sleep(390)
         autoscaling = boto3.client('autoscaling',
             aws_access_key_id=credentials['AccessKeyId'],
             aws_secret_access_key=credentials['SecretAccessKey'],
