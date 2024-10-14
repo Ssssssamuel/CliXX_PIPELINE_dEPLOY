@@ -168,7 +168,7 @@ EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
 
 exec > >(tee -a /var/log/userdata.log) 2>&1
  
-# Install the needed packages and enable the services (MariaDB, Apache)
+# Installing needed packages and enable the services (MariaDB, Apache)
 sudo yum update -y
 sudo yum install git -y
 sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
@@ -195,7 +195,7 @@ else
 fi
 sudo chmod -R 755 ${MOUNT_POINT}
  
-# Add ec2-user to Apache group and grant permissions to /var/www
+# Adding ec2-user to Apache group and granting permissions to /var/www
 sudo usermod -a -G apache ec2-user
 sudo chown -R ec2-user:apache /var/www
 sudo chmod 2775 /var/www && find /var/www -type d -exec sudo chmod 2775 {} \;
@@ -217,7 +217,7 @@ echo "Running DB update statement..." >> /var/log/userdata.log
 RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
 echo $RESULT >> /var/log/userdata.log
 
-# Check if result is empty
+# Checking if result is empty
 if [[ -n "$RESULT" ]]; then
     echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
     mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
@@ -228,7 +228,7 @@ else
     echo "No matching values found. Skipping update..." >> /var/log/userdata.log
 fi
 
-# Allow WordPress to use Permalinks
+# Allowing WordPress to use Permalinks
 echo "Now allowing WordPress to use Permalinks..." >> /var/log/userdata.log
 sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 
@@ -310,7 +310,7 @@ def create_auto_scaling_group(autoscaling, launch_template_id, target_group_arn)
 # Create Route 53 Record
 def create_route_53_record(route53, lb_dns, lb_hz):
     try:
-        response = route53.change_resource_record_sets(
+        route53.change_resource_record_sets(
             HostedZoneId='Z01063533B95XIB5GVOHL',
             ChangeBatch={
                 'Changes': [{
@@ -379,23 +379,33 @@ def main():
                        aws_secret_access_key=credentials['SecretAccessKey'],
                        aws_session_token=credentials['SessionToken'])
 
-    # Call functions in order
+    # Call functions in specific order to avoid errors
     security_group_id = create_security_group(ec2)
+    store_in_ssm(ssm, 'SECURITY_GROUP_ID', security_group_id)
+    
     efs_id = create_efs(efs, ec2, security_group_id)
+    store_in_ssm(ssm, 'EFS_ID', efs_id)
+    
     target_group_arn = create_target_group(elbv2_client)
+    store_in_ssm(ssm, 'TARGET_GROUP_ARN', target_group_arn)
+    
     lb_arn, lb_dns, lb_hz = create_load_balancer(elbv2_client, security_group_id)
+    store_in_ssm(ssm, 'LOAD_BALANCER_DNS', lb_dns)
+    
     attach_certificate(elbv2_client, lb_arn, target_group_arn)
     create_keypair(ec2)
     launch_template_id = create_launch_template(ec2, security_group_id, efs_id, lb_dns)
+    store_in_ssm(ssm, 'LAUNCH_TEMPLATE_ID', launch_template_id)
+    
     create_auto_scaling_group(autoscaling, launch_template_id, target_group_arn)
     create_route_53_record(route53, lb_dns, lb_hz)
 
     # Store important variables in SSM
-    store_in_ssm(ssm, 'EFS_ID', efs_id)
-    store_in_ssm(ssm, 'TARGET_GROUP_ARN', target_group_arn)
-    store_in_ssm(ssm, 'LOAD_BALANCER_DNS', lb_dns)
-    store_in_ssm(ssm, 'SECURITY_GROUP_ID', security_group_id)
-    store_in_ssm(ssm, 'LAUNCH_TEMPLATE_ID', launch_template_id)
+    
+    
+    
+    
+    
 
 if __name__ == "__main__":
     main()
