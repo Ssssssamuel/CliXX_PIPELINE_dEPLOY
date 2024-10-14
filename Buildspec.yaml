@@ -12,9 +12,9 @@ phases:
     on-failure: ABORT
     commands:
       - echo starting build on `date`
-      - echo "Creating CliXX Security Group for apps and database"
+      - echo "Deploying resources..."
       - |
-          flag="destroy"
+          flag="create"
           if [[ $flag == 'create' ]]
           then
               python clixx_deployment.py
