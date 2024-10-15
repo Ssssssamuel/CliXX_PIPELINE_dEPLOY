@@ -145,7 +145,8 @@ try:
         DBInstanceClass='db.m6gd.large',
         AvailabilityZone='us-east-1a',
         MultiAZ=False,
-        PubliclyAccessible=True
+        PubliclyAccessible=True, 
+        VpcSecurityGroupIds=[security_group_id]
     )
     print("DB instance restored:", response)
     
@@ -207,7 +208,7 @@ except ClientError as e:
 USER_DATA = '''#!/bin/bash
 
 # Declaring Variables
-DB_NAME="wordpressdb"
+DB_NAME="wordpressdb-ecs"
 DB_USER="wordpressuser"
 DB_PASS="W3lcome123"
 LB_DNS="https://dev.clixx-samuel.com"
@@ -217,6 +218,7 @@ exec > >(tee -a /var/log/userdata.log) 2>&1
  
 # Install the needed packages and enable the services (MariaDB, Apache)
 sudo yum update -y
+sudo yum install -y nfs-utils
 sudo yum install git -y
 sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
 sudo yum install -y httpd mariadb-server
