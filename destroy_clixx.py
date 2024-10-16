@@ -172,7 +172,7 @@ def delete_efs(**args):
             efs.delete_mount_target(MountTargetId=mount_target_id)
             print(f"Deleted mount target: {mount_target_id}")
 
-        time.sleep(15)
+        time.sleep(20)
         
         # Deleting EFS file system
         efs.delete_file_system(FileSystemId=F_S)
@@ -190,7 +190,7 @@ def delete_security_group(**args):
         if not S_G:
             print(f"Could not retrieve security group ID, skipping deletion.")
             return
-
+        time.sleep(60)
         ec2.delete_security_group(GroupId=S_G)
         print(f"Deleted security group: {S_G}")
     except ClientError as e:
