@@ -208,7 +208,7 @@ except ClientError as e:
 USER_DATA = '''#!/bin/bash
 
 # Declaring Variables
-DB_NAME="wordpressdb-ecs"
+DB_NAME="wordpressdbclixx-ecs"
 DB_USER="wordpressuser"
 DB_PASS="W3lcome123"
 LB_DNS="https://dev.clixx-samuel.com"
