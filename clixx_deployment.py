@@ -119,8 +119,8 @@ try:
                                 region_name=AWS_REGION)
     response = elbv2_client.create_target_group(
         Name='my-tg-group',
-        Protocol='HTTPS',
-        Port=443,
+        Protocol='HTTP',
+        Port=80,
         VpcId='vpc-09c489f7e7f6ccbfe',
         HealthCheckProtocol='HTTP',
         HealthCheckPort='80',
