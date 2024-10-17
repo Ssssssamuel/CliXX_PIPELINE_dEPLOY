@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import boto3,botocore
 from botocore.exceptions import ClientError
 import time
@@ -62,6 +61,7 @@ except ClientError as e:
     sys.exit()
     
 
+
 # Creating EFS
 try:
     efs = boto3.client('efs',
@@ -90,7 +90,8 @@ try:
 except ClientError as e:
     print("Error creating efs:", str(e))
     sys.exit()
-
+    
+    
 # Attaching security group to EFS mount targets
 # Getting all subnets for my VPC
 subnets = ec2.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': ['vpc-09c489f7e7f6ccbfe']}])['Subnets']
@@ -121,8 +122,8 @@ try:
         Protocol='HTTPS',
         Port=443,
         VpcId='vpc-09c489f7e7f6ccbfe',
-        HealthCheckProtocol='HTTP',
-        HealthCheckPort='80',
+        HealthCheckProtocol='HTTPS',
+        HealthCheckPort='443',
         HealthCheckPath='/index.php',
         TargetType='instance',
     )
@@ -146,7 +147,9 @@ try:
         AvailabilityZone='us-east-1a',
         MultiAZ=False,
         PubliclyAccessible=True, 
-        VpcSecurityGroupIds=[security_group_id]
+        VpcSecurityGroupIds=[security_group_id],
+        AutoMinorVersionUpgrade=False
+        
     )
     print("DB instance restored:", response)
     
@@ -208,7 +211,7 @@ except ClientError as e:
 USER_DATA = '''#!/bin/bash
 
 #Declaring Variables
-DB_NAME="wordpressdbclixx-ecs"
+DB_NAME="wordpressdbclixx"
 DB_USER="wordpressuser"
 DB_PASS="W3lcome123"
 LB_DNS="dev.clixx-samuel.com"
@@ -265,18 +268,20 @@ sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/
 
 # Updating WordPress site URLs in RDS database
 echo "Running DB update statement..." >> /var/log/userdata.log
-RESULT=$(mysql -u $DB_USER -p'DB_PASS' -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';")
+RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
+echo $RESULT >> /var/log/userdata.log
 
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
-  echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
-mysql -u $DB_USER -p'$DB_PASS' -h $EP_DNS -D $DB_NAME <<EOF
-UPDATE wp_options SET option_value ='$LB_DNS' WHERE option_value LIKE 'CliXX-APP-NLB%%';
+    echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
+    mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
+UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%%';
 EOF
-  echo "UPDATE query executed." >> /var/log/userdata.log
+    echo "UPDATE query executed." >> /var/log/userdata.log
 else
-  echo "No matching values found. Skipping update..." >> /var/log/userdata.log
+    echo "No matching values found. Skipping update..." >> /var/log/userdata.log
 fi
+
  
 ## Allow wordpress to use Permalinks
 echo "Now allowing WordPress to use Permalinks…" >> /var/log/userdata.log
@@ -296,6 +301,7 @@ find /var/www -type d -exec sudo chmod 2775 {} \;
 sudo find /var/www -type f -exec sudo chmod 0664 {} \;
  
 ##Restart Apache
+echo "Now restarting services..." >> /var/log/userdata.log
 sudo systemctl restart httpd
 sudo service httpd restart
  
