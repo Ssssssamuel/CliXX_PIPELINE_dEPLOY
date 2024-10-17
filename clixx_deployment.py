@@ -122,9 +122,13 @@ try:
         Protocol='HTTPS',
         Port=443,
         VpcId='vpc-09c489f7e7f6ccbfe',
-        HealthCheckProtocol='HTTPS',
-        HealthCheckPort='443',
+        HealthCheckProtocol='HTTP',
+        HealthCheckPort='80',
         HealthCheckPath='/index.php',
+        HealthyThresholdCount=2,      
+        UnhealthyThresholdCount=10,    
+        HealthCheckTimeoutSeconds=120,    
+        HealthCheckIntervalSeconds=121, 
         TargetType='instance',
     )
     target_group_arn = response['TargetGroups'][0]['TargetGroupArn']
@@ -211,10 +215,10 @@ except ClientError as e:
 USER_DATA = '''#!/bin/bash
 
 #Declaring Variables
-DB_NAME="wordpressdbclixx"
+DB_NAME="wordpressdb"
 DB_USER="wordpressuser"
 DB_PASS="W3lcome123"
-LB_DNS="dev.clixx-samuel.com"
+LB_DNS="https://dev.clixx-samuel.com"
 EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
 
 exec > >(tee -a /var/log/userdata.log) 2>&1
