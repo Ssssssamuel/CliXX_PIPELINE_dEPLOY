@@ -14,7 +14,7 @@ phases:
       - echo starting build on `date`
       - echo "Deploying resources..."
       - |
-          flag="create"
+          flag="delete"
           if [[ $flag == 'create' ]]
           then
               python clixx_deployment.py

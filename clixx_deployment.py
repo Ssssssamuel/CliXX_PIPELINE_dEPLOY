@@ -122,18 +122,22 @@ def create_internet_gateway(vpc_id):
 
 def create_nat_gateway(subnet_id):
     try:
-        #eip = ec2.allocate_address(Domain='vpc')
-        #allocation_id = eip['AllocationId']
-        allocation_id = 'eipalloc-069b27cb44f5b1178'
+        # Allocating a new Elastic IP
+        eip = ec2.allocate_address(Domain='vpc')
+        allocation_id = eip['AllocationId'] 
+
+        # Creating NAT Gateway using the new Elastic IP allocation ID
         nat_gateway = ec2.create_nat_gateway(SubnetId=subnet_id, AllocationId=allocation_id)
-        time.sleep(60)
+        
+        time.sleep(60)  
         nat_gateway_id = nat_gateway['NatGateway']['NatGatewayId']
         print(f"NAT Gateway created with ID: {nat_gateway_id}")
+        
         save_to_ssm('/python/nat_gateway_id', nat_gateway_id)
         return nat_gateway_id
     except ClientError as e:
         print(f"Error creating NAT Gateway: {e}")
-        sys.exit()
+        sys.exit(1)
 
 def create_route_table(vpc_id, gateway_id=None, nat_gateway_id=None, is_public=True):
     try:
