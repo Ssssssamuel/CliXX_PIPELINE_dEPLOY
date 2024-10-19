@@ -610,7 +610,7 @@ def main():
     create_route_53_record(alb_hz, alb_dns)
 
     # Create Launch Template
-    launch_template_id = create_launch_template(efs_id, web_sg_id)
+    launch_template_id = create_launch_template(efs_id, web_sg_id, base64)
 
     # Create Auto Scaling Group
     create_auto_scaling_group(launch_template_id, [public_subnet_id1, public_subnet_id2])
