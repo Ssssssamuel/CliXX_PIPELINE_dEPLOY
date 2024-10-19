@@ -260,10 +260,14 @@ def restore_db_from_snapshot(snapshot_id, db_subnet_group_name, db_security_grou
         db_instance = rds_client.restore_db_instance_from_db_snapshot(
             DBInstanceIdentifier='wordpressdbclixx-ecs',
             DBSnapshotIdentifier=snapshot_id,
-            DBInstanceClass='db.t2.micro',
+            AvailabilityZone='us-east-1a',
+            DBInstanceClass='db.m6gd.large',
+            MultiAZ=False,
             DBSubnetGroupName=db_subnet_group_name,
-            VpcSecurityGroupIds=[db_security_group_id]
+            VpcSecurityGroupIds=[db_security_group_id],
+            AutoMinorVersionUpgrade=False
         )
+        
         db_instance_id = db_instance['DBInstance']['DBInstanceIdentifier']
         print(f"Restored DB Instance with ID: {db_instance_id} from snapshot {snapshot_id}.")
         save_to_ssm('/python/db_instance_id', db_instance_id) 
