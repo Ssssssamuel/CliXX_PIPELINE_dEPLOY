@@ -315,7 +315,14 @@ def create_target_group(vpc_id):
             Port=80,
             VpcId=vpc_id,
             HealthCheckProtocol="HTTP",
-            HealthCheckPort="80"
+            HealthCheckPath='/index.php',
+            HealthCheckPort="80",
+            HealthyThresholdCount=2,      
+            UnhealthyThresholdCount=10,    
+            HealthCheckTimeoutSeconds=120,    
+            HealthCheckIntervalSeconds=121, 
+            TargetType='instance',
+
         )
         target_group_arn = target_group['TargetGroups'][0]['TargetGroupArn']
         print(f"Target Group created with ARN: {target_group_arn}")
