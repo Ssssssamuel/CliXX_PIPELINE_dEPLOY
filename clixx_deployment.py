@@ -289,6 +289,7 @@ def create_efs_file_system():
 
 def create_efs_mount_target(file_system_id, subnet_id, security_group_id):
     try:
+        time.sleep(15)
         mount_target = efs.create_mount_target(
             FileSystemId=file_system_id,
             SubnetId=subnet_id,

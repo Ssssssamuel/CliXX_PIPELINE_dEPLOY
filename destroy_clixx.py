@@ -291,6 +291,7 @@ def delete_route_table(route_type):
 
 def delete_subnet(subnet_name):
     try:
+        time.sleep(30)
         subnet_id = get_from_ssm(f'/python/{subnet_name.lower().replace(" ", "_")}_subnet_id')
         if not subnet_id:
             print(f"Subnet {subnet_name} ID not found in SSM. Skipping deletion.")
@@ -323,13 +324,11 @@ def delete_all_resources():
     delete_subnet('private_subnet_2')
     delete_subnet('public_subnet_2')
     delete_subnet('private_subnet_1')
-    
     delete_internet_gateway()
     #delete_route_table('public')
     #delete_route_table('private')
     delete_vpc()
     delete_key_pair()
-    delete_security_group('db')
     delete_route_53_record()
     delete_application_load_balancer()
     delete_target_group()
@@ -338,6 +337,7 @@ def delete_all_resources():
     delete_db_subnet_group()
     delete_auto_scaling_group()
     delete_launch_template()
+    delete_security_group('db')
     delete_security_group('web')
 
 if __name__ == "__main__":
