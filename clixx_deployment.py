@@ -404,7 +404,7 @@ def create_route_53_record(alb_hz, alb_dns):
 
 
 
-def create_launch_template(file_system_id, sg_id):
+def create_launch_template(file_system_id, sg_id, base64):
     # User database
     USERDATA = '''#!/bin/bash
 
