@@ -124,6 +124,7 @@ def create_nat_gateway(subnet_id):
         eip = ec2.allocate_address(Domain='vpc')
         allocation_id = eip['AllocationId']
         nat_gateway = ec2.create_nat_gateway(SubnetId=subnet_id, AllocationId=allocation_id)
+        time.sleep(60)
         nat_gateway_id = nat_gateway['NatGateway']['NatGatewayId']
         print(f"NAT Gateway created with ID: {nat_gateway_id}")
         save_to_ssm('/python/nat_gateway_id', nat_gateway_id)
@@ -540,6 +541,7 @@ def main():
     nat_gateway_id = create_nat_gateway(public_subnet_id1)
 
     # Create Route Tables and associate them with subnets
+    time.sleep(30)
     public_route_table_id = create_route_table(vpc_id, gateway_id=igw_id, is_public=True)
     private_route_table_id = create_route_table(vpc_id, nat_gateway_id=nat_gateway_id, is_public=False)
 
