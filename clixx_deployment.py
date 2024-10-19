@@ -3,6 +3,7 @@ import json
 from botocore.exceptions import ClientError
 import time
 import sys
+import base64
 
 # Global Variables
 AWS_REGION = 'us-east-1'
