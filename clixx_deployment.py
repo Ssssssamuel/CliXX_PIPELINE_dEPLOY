@@ -429,8 +429,8 @@ sudo yum update -y
 sudo yum install git -y
 sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
 sudo yum install -y httpd mariadb-server
-sudo systemctl start httpd
-sudo systemctl enable httpd
+#sudo systemctl start httpd
+#sudo systemctl enable httpd
 
 # Mounting EFS
 FILE_SYSTEM_ID=%s
@@ -474,6 +474,23 @@ echo "Running DB update statement..." >> /var/log/userdata.log
 RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
 echo $RESULT >> /var/log/userdata.log
 
+
+# Updating wp-config.php file
+WP_CONFIG_PATH="/path/to/wp-config.php"
+CUSTOM_CODE="if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    \$_SERVER['HTTPS'] = 'on';
+}"
+
+LINE_NUMBER=$(nl -ba "$WP_CONFIG_PATH" | grep "/* That's all, stop editing! Happy publishing. */" | awk '{print $1}')
+
+if [ -n "$LINE_NUMBER" ]; then
+    sed -i "$((LINE_NUMBER-1))i $CUSTOM_CODE" "$WP_CONFIG_PATH"
+    echo "Custom code successfully inserted above the '/* That's all, stop editing! */' line in wp-config.php."
+else
+    echo "The line '/* That's all, stop editing! */' was not found in wp-config.php." >> /var/log/userdata.log
+fi
+
+
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
     echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
@@ -498,8 +515,8 @@ find /var/www -type f -exec sudo chmod 0664 {} \;
 
 # Restart Apache
 echo "Now restarting services..." >> /var/log/userdata.log
-sudo systemctl restart httpd
-sudo service httpd restart
+sudo systemctl start httpd
+sudo service httpd start
 
 # Enable httpd and adjust kernel settings
 sudo systemctl enable httpd
