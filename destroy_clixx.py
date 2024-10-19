@@ -127,6 +127,13 @@ def delete_application_load_balancer():
         if not alb_arn:
             print("ALB ARN not found in SSM. Skipping deletion.")
             return
+        
+        # Deleting listeners associated with the load balancer
+        listeners = elbv2_client.describe_listeners(LoadBalancerArn=alb_arn)
+        for listener in listeners['Listeners']:
+            elbv2_client.delete_listener(ListenerArn=listener['ListenerArn'])
+            print(f"Deleted listener: {listener['ListenerArn']}")
+
 
         elbv2_client.delete_load_balancer(LoadBalancerArn=alb_arn)
         print(f"Application Load Balancer '{alb_arn}' deleted successfully.")
@@ -191,13 +198,19 @@ def delete_db_instance():
         print(f"Error deleting DB Instance: {e}")
         
 
-def delete_db_subnet_group():
+def delete_db_subnet_group(subnet_id):
     try:
         time.sleep(20)
         db_subnet_group_name = get_from_ssm('/python/db_subnet_group_name')
         if not db_subnet_group_name:
             print("DB Subnet Group name not found in SSM. Skipping deletion.")
             return
+        
+        # Checking if there are any network interfaces attached to the subnet
+        network_interfaces = ec2.describe_network_interfaces(Filters=[{'Name': 'subnet-id', 'Values': [subnet_id]}])['NetworkInterfaces']
+        for ni in network_interfaces:
+            ec2.delete_network_interface(NetworkInterfaceId=ni['NetworkInterfaceId'])
+            print(f"Network Interface {ni['NetworkInterfaceId']} deleted successfully.")
 
         rds_client.delete_db_subnet_group(DBSubnetGroupName=db_subnet_group_name)
         print(f"DB Subnet Group '{db_subnet_group_name}' deleted successfully.")
@@ -224,6 +237,12 @@ def delete_internet_gateway():
         if not igw_id:
             print("Internet Gateway ID not found in SSM. Skipping deletion.")
             return
+        
+         # Unmapping public IP addresses
+        addresses = ec2.describe_addresses(Filters=[{'Name': 'domain', 'Values': ['vpc']}])['Addresses']
+        for address in addresses:
+            ec2.release_address(AllocationId=address['AllocationId'])
+            print(f"Elastic IP {address['PublicIp']} released successfully.")
 
         vpc_id = get_from_ssm('/python/vpc_id')
         ec2.detach_internet_gateway(InternetGatewayId=igw_id, VpcId=vpc_id)
@@ -287,6 +306,13 @@ def delete_route_table(route_type):
             print(f"Route Table {route_type} ID not found in SSM. Skipping deletion.")
             return
         
+        # Disassociating route table from any subnets
+        associations = ec2.describe_route_tables(RouteTableIds=[route_table_id])['RouteTables'][0]['Associations']
+        for association in associations:
+            if not association['Main']:  # Skipping the main route table association
+                ec2.disassociate_route_table(AssociationId=association['RouteTableAssociationId'])
+                print(f"Disassociated Route Table {route_table_id} from Subnet.")
+                
         ec2.delete_route_table(RouteTableId=route_table_id)
         print(f"Route Table {route_table_id} deleted successfully.")
     except ClientError as e:
@@ -324,7 +350,6 @@ def delete_all_resources():
     # Delete resources in reverse order of their creation
     delete_db_instance()
     delete_nat_gateway()
-    time.sleep(60)
     delete_subnet('public_subnet_1')
     delete_subnet('private_subnet_2')
     delete_subnet('public_subnet_2')

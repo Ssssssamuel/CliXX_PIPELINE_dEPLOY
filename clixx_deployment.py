@@ -400,7 +400,7 @@ def create_route_53_record(alb_hz, alb_dns):
 
 
 
-def create_launch_template(file_system_id, sg_id, base64):
+def create_launch_template(file_system_id, sg_id):
     # User database
     USERDATA = '''#!/bin/bash
 
@@ -605,7 +605,7 @@ def main():
     create_route_53_record(alb_hz, alb_dns)
 
     # Create Launch Template
-    launch_template_id = create_launch_template("sg_id")
+    launch_template_id = create_launch_template(efs_id, web_sg_id)
 
     # Create Auto Scaling Group
     create_auto_scaling_group(launch_template_id, [public_subnet_id1, public_subnet_id2])
