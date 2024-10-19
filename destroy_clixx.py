@@ -165,6 +165,7 @@ def delete_efs_mount_target():
 
 def delete_efs_file_system():
     try:
+        time.sleep(15)
         file_system_id = get_from_ssm('/python/efs_file_system_id')
         if not file_system_id:
             print("EFS File System ID not found in SSM. Skipping deletion.")
@@ -232,32 +233,33 @@ def delete_internet_gateway():
 
 def delete_route_53_record():
     try:
+        h_z= 'Z01063533B95XIB5GVOHL'
         alb_hz = get_from_ssm('/python/alb_hz')
         alb_dns = get_from_ssm('/python/alb_dns')
-
-        if not alb_hz or not alb_dns:
-            print("ALB Hosted Zone or DNS name not found in SSM. Skipping Route 53 record deletion.")
-            return
-
-        route53.change_resource_record_sets(
-            HostedZoneId='Z01063533B95XIB5GVOHL',
-            ChangeBatch={
-                'Changes': [
-                    {
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': {
-                            'Name': 'dev.clixx-samuel.com',
-                            'Type': 'A',
-                            'AliasTarget': {
-                                'HostedZoneId': alb_hz,
-                                'DNSName': alb_dns,
-                                'EvaluateTargetHealth': False
-                            }
-                        }
-                    }
-                ]
-            }
+        # Getting the existing record set
+        existing_record = route53.list_resource_record_sets(
+            HostedZoneId=h_z,
+            StartRecordName='dev.clixx-samuel.com',
+            StartRecordType='A',
+            MaxItems="1"
         )
+        
+        # Checking if the record exists and matches the expected values
+        if existing_record['ResourceRecordSets']:
+            current_record = existing_record['ResourceRecordSets'][0]
+            
+            route53.change_resource_record_sets(
+                HostedZoneId=h_z,
+                ChangeBatch={
+                    'Changes': [
+                        {
+                            'Action': 'DELETE',
+                            'ResourceRecordSet': current_record
+                            }
+                        ]
+                    }
+                )
+
         print(f"Route 53 record for 'dev.clixx-samuel.com' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Route 53 record: {e}")
@@ -291,7 +293,7 @@ def delete_route_table(route_type):
 
 def delete_subnet(subnet_name):
     try:
-        time.sleep(30)
+        time.sleep(70)
         subnet_id = get_from_ssm(f'/python/{subnet_name.lower().replace(" ", "_")}_subnet_id')
         if not subnet_id:
             print(f"Subnet {subnet_name} ID not found in SSM. Skipping deletion.")
@@ -325,8 +327,8 @@ def delete_all_resources():
     delete_subnet('public_subnet_2')
     delete_subnet('private_subnet_1')
     delete_internet_gateway()
-    #delete_route_table('public')
-    #delete_route_table('private')
+    delete_route_table('public')
+    delete_route_table('private')
     delete_vpc()
     delete_key_pair()
     delete_route_53_record()

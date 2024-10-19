@@ -578,8 +578,9 @@ def main():
 
     # Create Load Balancer and Target Group
     target_group_arn = create_target_group(vpc_id)
-    alb_arn = create_application_load_balancer([public_subnet_id1, public_subnet_id2], web_sg_id)
+    alb_arn, alb_hz, alb_dns = create_application_load_balancer([public_subnet_id1, public_subnet_id2], web_sg_id)
     attach_target_group_to_listener(alb_arn, target_group_arn)
+
 
     # Create Route 53 record for Load Balancer
     create_route_53_record("alb_hz", "alb_dns")
