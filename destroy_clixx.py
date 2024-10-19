@@ -350,13 +350,14 @@ def delete_all_resources():
     # Delete resources in reverse order of their creation
     delete_db_instance()
     delete_nat_gateway()
-    delete_subnet('public_subnet_1')
+    
     delete_subnet('private_subnet_2')
     delete_subnet('public_subnet_2')
     delete_subnet('private_subnet_1')
     delete_internet_gateway()
     delete_route_table('public')
     delete_route_table('private')
+    delete_subnet('public_subnet_1')
     delete_vpc()
     delete_key_pair()
     delete_route_53_record()
@@ -366,7 +367,7 @@ def delete_all_resources():
     delete_efs_file_system()  
     delete_auto_scaling_group()
     delete_launch_template()
-    delete_db_subnet_group()
+    delete_db_subnet_group('subnet_id')
     delete_security_group('db')
     delete_security_group('web')
 
