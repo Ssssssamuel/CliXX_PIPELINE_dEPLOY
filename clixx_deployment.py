@@ -528,17 +528,16 @@ def create_launch_template(file_system_id, sg_id, base64, public_subnet_id1):
                 'ImageId': AMI_ID,
                 'InstanceType': 't2.micro', 
                 'KeyName': 'stackkp',
-                'SecurityGroupIds': [sg_id],
-                'UserData': base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8'),
+                'UserData': base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8'), 
                 'NetworkInterfaces': [
                     {
                         'DeviceIndex': 0,
                         'SubnetId': public_subnet_id1,
-                        'AssociatePublicIpAddress': True,
+                        'AssociatePublicIpAddress': True, 
                         'Groups': [sg_id] 
                     }
                 ],
-                'EbsOptimized': False,
+                'EbsOptimized': False, 
                 'BlockDeviceMappings': [
                     {
                         'DeviceName': '/dev/xvda',
@@ -555,7 +554,7 @@ def create_launch_template(file_system_id, sg_id, base64, public_subnet_id1):
         launch_template_id = response['LaunchTemplate']['LaunchTemplateId']
         print(f"Launch template created successfully: {launch_template_id}")
         
-        # Store the launch template ID in SSM for future use
+        # Storing the launch template ID in SSM for future use
         ssm.put_parameter(Name='/python/launch_template_id', Value=launch_template_id, Type='String', Overwrite=True)
         return launch_template_id
     except ClientError as e:
@@ -564,7 +563,7 @@ def create_launch_template(file_system_id, sg_id, base64, public_subnet_id1):
 
 def create_auto_scaling_group(launch_template_id, subnet_ids, target_group_arn):
     try:
-        time.sleep(390)
+        time.sleep(300)
         autoscaling.create_auto_scaling_group(
             AutoScalingGroupName="pyt-asg",
             LaunchTemplate={
