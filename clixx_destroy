@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+import boto3,botocore
+from botocore.exceptions import ClientError
+import sys
+
+# Global Variables
+AWS_REGION = 'us-east-1'
+SUBNET_ID = 'subnet-077c0abf304d257a5'
+AMI_ID = 'ami-00f251754ac5da7f0'
+
+# Assume IAM Role for Boto3 session
+sts_client = boto3.client('sts')
+try:
+    assumed_role_object=sts_client.assume_role(
+        RoleArn='arn:aws:iam::222634373909:role/Engineer', 
+        RoleSessionName='mysession')
+
+    credentials=assumed_role_object['Credentials']
+    print(credentials)
+except ClientError as e:
+    print("Error Assuming role:", str(e))
+
+# DEleting Autoscaling Group
+try:
+    autoscaling = boto3.client('autoscaling',
+            aws_access_key_id=credentials['AccessKeyId'],
+            aws_secret_access_key=credentials['SecretAccessKey'],
+            aws_session_token=credentials['SessionToken']
+    )
+    response = autoscaling.delete_auto_scaling_group(
+        AutoScalingGroupName='my-auto-scaling-group',
+        ForceDelete=True
+    )
+    print("Auto Scaling Group deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting Auto Scaling Group: {str(e)}")
+    
+ 
+ # Deleting Launch Template
+try:
+    ec2 = boto3.client('ec2',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken']
+                       )
+    response1 = ec2.describe_launch_template(
+            LaunchTemplateName='my-launch-template')
+    launch_temp_id = response1['LaunchTemplateId']
+    response = ec2.delete_launch_template(
+        LaunchTemplateId=launch_temp_id
+    )
+    print("Launch Template deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting Launch Template: {str(e)}")
+    
+    
+# Deleting Hosted Zone
+try:
+    route53 = boto3.client('route53',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken']
+                       )
+    response = route53.change_resource_record_sets(
+        HostedZoneId='Z01063533B95XIB5GVOHL',
+        ChangeBatch={
+            'Changes': [
+                {
+                    'Action': 'DELETE',
+                    'ResourceRecordSet': {
+                        'Name': 'dev.clixx-samuel.com',
+                        'Type': 'A',
+                        'AliasTarget': {
+                            'HostedZoneId': lb_HZ,
+                            'DNSName': lb_dns,
+                            'EvaluateTargetHealth': False
+                        }
+                    }
+                }
+            ]
+        }
+    )
+    print("Route 53 record deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting Route 53 record: {str(e)}")
+
+   
+# Deleting Load Balancer
+try:
+    elbv2_client = boto3.client('elbv2_client',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken']
+                       )
+    response1 = elbv2_client.describe_load_balancer(
+        LoadBalancerArn=lb_arn
+    )
+    response = elbv2_client.delete_load_balancer(
+        LoadBalancerArn=lb_arn
+    )
+    print("Load Balancer deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting Load Balancer: {str(e)}")
+    
+    
+# Deleting Target Group
+try:
+    elbv2_client = boto3.client('elbv2_client',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken']
+                       )
+    response = elbv2_client.delete_target_group(
+        TargetGroupArn=target_group_arn
+    )
+    print("Target Group deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting Target Group: {str(e)}")
+    
+
+# Deleting EFS
+try:
+    # Getting all mount targets for the EFS
+    efs = boto3.client('efs',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken']
+                       )
+    mount_targets = efs.describe_mount_targets(FileSystemId=efs_id)['MountTargets']
+    for target in mount_targets:
+        efs.delete_mount_target(MountTargetId=target['MountTargetId'])
+        print(f"Deleted mount target: {target['MountTargetId']}")
+    
+    # Delete the EFS file system
+    response = efs.delete_file_system(FileSystemId=efs_id)
+    print("EFS File System deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting EFS File System: {str(e)}")
+
+
+# Deleting Security Group
+try:
+    ec2 = boto3.client('ec2',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken']
+                       )
+    response = ec2.delete_security_group(GroupId=security_group_id)
+    print("Security group deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting security group: {str(e)}")
+
+
+# Deleting Keypair
+try:
+    ec2 = boto3.client('ec2',
+                       aws_access_key_id=credentials['AccessKeyId'],
+                       aws_secret_access_key=credentials['SecretAccessKey'],
+                       aws_session_token=credentials['SessionToken']
+                       )
+    response = ec2.delete_key_pair(KeyName='my-key-pair')
+    print("Key pair deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting key pair: {str(e)}")
+    
+    
+# Deleting Certificate
+try:
+    acm_client = boto3.client('acm',
+                          aws_access_key_id=credentials['AccessKeyId'],
+                          aws_secret_access_key=credentials['SecretAccessKey'],
+                          aws_session_token=credentials['SessionToken'],
+                          region_name=AWS_REGION)
+    response = acm_client.delete_certificate(CertificateArn=certificate_arn)
+    print("Certificate deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting certificate: {str(e)}")
+
+
+# Deleting RDS
+try:
+    rds_client = boto3.client('rds',
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken']
+    )
+    response = rds_client.delete_db_instance(
+        DBInstanceIdentifier='wordpressdbclixx-ecs',
+        SkipFinalSnapshot=True,  # Set to False if you want a final snapshot
+        DeleteAutomatedBackups=True
+    )
+    print("RDS instance deleted successfully.")
+except ClientError as e:
+    print(f"Error deleting RDS instance: {str(e)}")

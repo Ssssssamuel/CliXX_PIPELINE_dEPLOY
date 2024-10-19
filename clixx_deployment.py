@@ -1,351 +1,349 @@
-import boto3,botocore
+import boto3
+import json
 from botocore.exceptions import ClientError
 import time
 import sys
-import base64
-
 
 # Global Variables
 AWS_REGION = 'us-east-1'
-SUBNET_ID = 'subnet-077c0abf304d257a5'
-SUBNET_ID1 = 'subnet-09c91fae22777bc26'
 AMI_ID = 'ami-00f251754ac5da7f0'
 
 # Assume IAM Role for Boto3 session
 sts_client = boto3.client('sts')
-try:
-    assumed_role_object=sts_client.assume_role(
-        RoleArn='arn:aws:iam::222634373909:role/Engineer', 
-        RoleSessionName='mysession')
 
-    credentials=assumed_role_object['Credentials']
+try:
+    assumed_role_object = sts_client.assume_role(
+        RoleArn='arn:aws:iam::222634373909:role/Engineer',
+        RoleSessionName='mysession'
+    )
+
+    credentials = assumed_role_object['Credentials']
     print(credentials)
 except ClientError as e:
     print("Error Assuming role:", str(e))
-    sys.exit()
- 
-    
+    exit(1)
 
-# Creating Security group
-try:
-    ec2 = boto3.client('ec2',
-                       aws_access_key_id=credentials['AccessKeyId'],
-                       aws_secret_access_key=credentials['SecretAccessKey'],
-                       aws_session_token=credentials['SessionToken'])
-    
-    response = ec2.create_security_group(
-        Description='My security group',
-        GroupName='my-security-group',
-        VpcId='vpc-09c489f7e7f6ccbfe'
-    )
-    
-    security_group_id = response['GroupId']
-    print(f"Created security group {security_group_id}")
-    
-    # Authorize Ingress rules for NFS (2049), SSH (22), HTTP (80), HTTPS (443), and MySQL/Aurora (3306)
-    ec2.authorize_security_group_ingress(
-        GroupId=security_group_id,
-        IpPermissions=[
-            {'IpProtocol': 'tcp', 'FromPort': 2049, 'ToPort': 2049, 'UserIdGroupPairs': [{'GroupId': security_group_id}]},
-            {'IpProtocol': 'tcp', 'FromPort': 3306, 'ToPort': 3306, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
-            {'IpProtocol': 'tcp', 'FromPort': 22, 'ToPort': 22, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
-            {'IpProtocol': 'tcp', 'FromPort': 80, 'ToPort': 80, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
-            {'IpProtocol': 'tcp', 'FromPort': 443, 'ToPort': 443, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
-        ]
-    )
-    
-    print("Ingress rules authorized successfully.")
+# Initialize clients with assumed role credentials
+ec2 = boto3.client('ec2',
+                   aws_access_key_id=credentials['AccessKeyId'],
+                   aws_secret_access_key=credentials['SecretAccessKey'],
+                   aws_session_token=credentials['SessionToken'],
+                   region_name=AWS_REGION)
 
-except ClientError as e:
-    print("Error creating security group or adding rules:", str(e))
-    sys.exit()
-    
+efs = boto3.client('efs',
+                   aws_access_key_id=credentials['AccessKeyId'],
+                   aws_secret_access_key=credentials['SecretAccessKey'],
+                   aws_session_token=credentials['SessionToken'],
+                   region_name=AWS_REGION)
 
+elbv2_client = boto3.client('elbv2',
+                             aws_access_key_id=credentials['AccessKeyId'],
+                             aws_secret_access_key=credentials['SecretAccessKey'],
+                             aws_session_token=credentials['SessionToken'],
+                             region_name=AWS_REGION)
 
-# Creating EFS
-try:
-    efs = boto3.client('efs',
-                       aws_access_key_id=credentials['AccessKeyId'],
-                       aws_secret_access_key=credentials['SecretAccessKey'],
-                       aws_session_token=credentials['SessionToken'])
-    response = efs.create_file_system(
-        CreationToken='myefstoken',
-        PerformanceMode='generalPurpose',
-        Encrypted=False,
-        ThroughputMode='bursting',
-        Backup=False,
-        Tags=[
-            {
-                'Key': 'Name',
-                'Value': 'CliXX-EFS'
-            },
-        ]
-    )
-    
-    # Get EFS ID from the response
-    efs_id = response['FileSystemId']    
-    print(response) 
-      
-    time.sleep (15) 
-except ClientError as e:
-    print("Error creating efs:", str(e))
-    sys.exit()
-    
-    
-# Attaching security group to EFS mount targets
-# Getting all subnets for my VPC
-subnets = ec2.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': ['vpc-09c489f7e7f6ccbfe']}])['Subnets']
+rds_client = boto3.client('rds',
+                          aws_access_key_id=credentials['AccessKeyId'],
+                          aws_secret_access_key=credentials['SecretAccessKey'],
+                          aws_session_token=credentials['SessionToken'],
+                          region_name=AWS_REGION)
 
-# Creating a mount target for each subnet
-for subnet in subnets:
-    try:
-        mount_target_response = efs.create_mount_target(
-            FileSystemId=efs_id,
-            SubnetId=subnet['SubnetId'],
-            SecurityGroups=[security_group_id]
-        )
-        print(f"Created mount target in {subnet['AvailabilityZone']} with ID: {mount_target_response['MountTargetId']}")
-    except ClientError as e:
-        print(f"Error creating mount target in {subnet['AvailabilityZone']}: {e}")
-        sys.exit()
-        
+ssm = boto3.client('ssm',
+                   aws_access_key_id=credentials['AccessKeyId'],
+                   aws_secret_access_key=credentials['SecretAccessKey'],
+                   aws_session_token=credentials['SessionToken'],
+                   region_name=AWS_REGION)
 
-# Creating Target Group
-try:
-    elbv2_client = boto3.client('elbv2', 
-                                aws_access_key_id=credentials['AccessKeyId'],
-                                aws_secret_access_key=credentials['SecretAccessKey'],
-                                aws_session_token=credentials['SessionToken'],
-                                region_name=AWS_REGION)
-    response = elbv2_client.create_target_group(
-        Name='my-tg-group',
-        Protocol='HTTP',
-        Port=80,
-        VpcId='vpc-09c489f7e7f6ccbfe',
-        HealthCheckProtocol='HTTP',
-        HealthCheckPort='80',
-        HealthCheckPath='/index.php',
-        HealthyThresholdCount=2,      
-        UnhealthyThresholdCount=10,    
-        HealthCheckTimeoutSeconds=120,    
-        HealthCheckIntervalSeconds=121, 
-        TargetType='instance',
-    )
-    target_group_arn = response['TargetGroups'][0]['TargetGroupArn']
-    print(f"Target Group created successfully: {target_group_arn}")      
-except ClientError as e:
-    print(f"Error creating target group: {str(e)}")
-    sys.exit()
-    
-# Restore DB instance from snapshot
-try:
-    rds_client = boto3.client('rds',
-        aws_access_key_id=credentials['AccessKeyId'],
-        aws_secret_access_key=credentials['SecretAccessKey'],
-        aws_session_token=credentials['SessionToken']
-    )
-    response = rds_client.restore_db_instance_from_db_snapshot(
-        DBInstanceIdentifier='wordpressdbclixx-ecs',
-        DBSnapshotIdentifier='arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot',
-        DBInstanceClass='db.m6gd.large',
-        AvailabilityZone='us-east-1a',
-        MultiAZ=False,
-        PubliclyAccessible=True, 
-        VpcSecurityGroupIds=[security_group_id],
-        AutoMinorVersionUpgrade=False
-        
-    )
-    print("DB instance restored:", response)
-    
-    DB_id = response['DBInstance']['DBInstanceIdentifier']
-    
-       
-except ClientError as e:
-    print("Error restoring Database:", str(e))
-    sys.exit() 
-
-# Creating Load Balancer
-try:
-    response = elbv2_client.create_load_balancer(
-        Name='my-load-balancer',
-        Subnets=[SUBNET_ID, SUBNET_ID1],
-        SecurityGroups=[security_group_id],
-        Scheme='internet-facing',
-        Type='application',
-        IpAddressType='ipv4'
-    )
-    lb_arn = response['LoadBalancers'][0]['LoadBalancerArn']
-    lb_dns = response['LoadBalancers'][0]['DNSName']
-    lb_HZ = response['LoadBalancers'][0]['CanonicalHostedZoneId']
-    print(f"Load Balancer created: {lb_arn}, DNS: {lb_dns}")
-    
-except ClientError as e:
-    print(f"Error creating load balancer: {str(e)}")
-    sys.exit()
-
-# Attaching Certificate to Load Balancer Listener
-try:
-    response = elbv2_client.create_listener(
-        LoadBalancerArn=lb_arn,
-        Protocol='HTTPS',
-        Port=443,
-        Certificates=[{'CertificateArn': 'arn:aws:acm:us-east-1:222634373909:certificate/0fa98a61-2d96-4c25-ae03-68388e8eb588'}],
-        DefaultActions=[
-            {
-                'Type': 'forward',
-                'TargetGroupArn': target_group_arn
-            }
-        ]
-    )
-    print(f"Listener created and certificate attached: {response['Listeners'][0]['ListenerArn']}")
-except ClientError as e:
-    print(f"Error attaching certificate: {str(e)}")
-    sys.exit()
-
-
-# Creating Keypair
-try:
-        response = ec2.create_key_pair(KeyName='my-key-pair')
-        print(f"Key Pair created: {response['KeyName']}")
-except ClientError as e:
-        print(f"Error creating key pair: {str(e)}")
-        sys.exit()
-
-# Creating  Launch Template
-USER_DATA = '''#!/bin/bash
-
-#Declaring Variables
-DB_NAME="wordpressdb"
-DB_USER="wordpressuser"
-DB_PASS="W3lcome123"
-LB_DNS="https://dev.clixx-samuel.com"
-EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
-
-exec > >(tee -a /var/log/userdata.log) 2>&1
- 
-##Install the needed packages and enable the services (MariaDb, Apache)
-sudo yum update -y
-sudo yum install git -y
-sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
-sudo yum install -y httpd mariadb-server
-sudo systemctl start httpd
-sudo systemctl enable httpd
-sudo systemctl is-enabled httpd
-
-## Mounting EFS
-FILE_SYSTEM_ID=%s
-AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
-REGION=${AVAILABILITY_ZONE:0:-1}
-MOUNT_POINT=/var/www/html
-sudo mkdir -p ${MOUNT_POINT}
-sudo chown ec2-user:ec2-user ${MOUNT_POINT}
-echo "${FILE_SYSTEM_ID}.efs.${REGION}.amazonaws.com:/ ${MOUNT_POINT} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0" | sudo tee -a /etc/fstab
-sudo mount -a -t nfs4
-
-## Verifying if EFS mounted correctly
-if ! mount | grep -q efs; then
-    echo "EFS mount failed" >> /var/log/userdata.log
-else
-    echo "EFS mount succeeded" >> /var/log/userdata.log
-fi
-sudo chmod -R 755 ${MOUNT_POINT}
- 
-##Add ec2-user to Apache group and grant permissions to /var/www
-sudo usermod -a -G apache ec2-user
-sudo chown -R ec2-user:apache /var/www
-sudo chmod 2775 /var/www && find /var/www -type d -exec sudo chmod 2775 {} \;
-find /var/www -type f -exec sudo chmod 0664 {} \;
-cd /var/www/html
-  
- 
-## Cloning repository
-if [ -f /var/www/html/wp-config.php ]; then
-    echo "Repository already exists..." >> /var/log/userdata.log
-else
-    echo "Now cloning repository..." >> /var/log/userdata.log
-    git clone https://github.com/stackitgit/CliXX_Retail_Repository.git
-    cp -r CliXX_Retail_Repository/* /var/www/html
-fi 
-
-# Replacing localhost URLs with RDS Endpoint in wp-config.php
-sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/html/wp-config.php
-
-# Updating WordPress site URLs in RDS database
-echo "Running DB update statement..." >> /var/log/userdata.log
-RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
-echo $RESULT >> /var/log/userdata.log
-
-# Check if result is empty
-if [[ -n "$RESULT" ]]; then
-    echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
-    mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
-UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%%';
-EOF
-    echo "UPDATE query executed." >> /var/log/userdata.log
-else
-    echo "No matching values found. Skipping update..." >> /var/log/userdata.log
-fi
-
- 
-## Allow wordpress to use Permalinks
-echo "Now allowing WordPress to use Permalinks…" >> /var/log/userdata.log
-sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
- 
-##Grant file ownership of /var/www & its contents to apache user
-sudo chown -R apache /var/www
- 
-##Grant group ownership of /var/www & contents to apache group
-sudo chgrp -R apache /var/www
- 
-##Change directory permissions of /var/www & its subdir to add group write 
-sudo chmod 2775 /var/www
-find /var/www -type d -exec sudo chmod 2775 {} \;
- 
-##Recursively change file permission of /var/www & subdir to add group write perm
-sudo find /var/www -type f -exec sudo chmod 0664 {} \;
- 
-##Restart Apache
-echo "Now restarting services..." >> /var/log/userdata.log
-sudo systemctl restart httpd
-sudo service httpd restart
- 
-##Enable httpd 
-sudo systemctl enable httpd 
-sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=200 net.ipv4.tcp_keepalive_intvl=200 net.ipv4.tcp_keepalive_probes=5
-
-echo "End of Bootstrap!" >> /var/log/userdata.log
-
-''' % (efs_id)
-
-USER_DATA_ENCODED = base64.b64encode(USER_DATA.encode('utf-8')).decode('utf-8')
-
-try:       
-        response = ec2.create_launch_template(
-            LaunchTemplateName='my-launch-template',
-            VersionDescription='v1',
-            LaunchTemplateData={
-                'ImageId': AMI_ID,
-                'InstanceType': 't2.micro',
-                'KeyName': 'my-key-pair',
-                'SecurityGroupIds': [security_group_id],
-                'UserData': USER_DATA_ENCODED
-                }
-        )
-        launch_temp_id = response['LaunchTemplate']['LaunchTemplateId']
-        print(f"Launch Template created: {response['LaunchTemplate']['LaunchTemplateId']}")
-except ClientError as e:
-        print(f"Error creating launch template: {str(e)}")
-        sys.exit()
-
-
-# Creating Route 53 Record
-try:
-        route53 = boto3.client('route53',
+route53 = boto3.client('route53',
             aws_access_key_id=credentials['AccessKeyId'],
             aws_secret_access_key=credentials['SecretAccessKey'],
-            aws_session_token=credentials['SessionToken']
-    )
-        response = route53.change_resource_record_sets(
+            aws_session_token=credentials['SessionToken'])
+
+autoscaling = boto3.client('autoscaling',
+                   aws_access_key_id=credentials['AccessKeyId'],
+                   aws_secret_access_key=credentials['SecretAccessKey'],
+                   aws_session_token=credentials['SessionToken'],
+                   region_name=AWS_REGION)
+
+def save_to_ssm(param_name, param_value):
+    try:
+        ssm.put_parameter(
+            Name=param_name,
+            Value=param_value,
+            Type='String',
+            Overwrite=True
+        )
+        print(f"Parameter {param_name} saved in SSM.")
+    except ClientError as e:
+        print(f"Error saving {param_name} to SSM: {e}")
+        sys.exit()
+
+def create_vpc():
+    try:
+        vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")
+        vpc_id = vpc['Vpc']['VpcId']
+        ec2.create_tags(Resources=[vpc_id], Tags=[{"Key": "Name", "Value": "PYTVPC"}])
+        print(f"VPC created with ID: {vpc_id}")
+        save_to_ssm('/python/vpc_id', vpc_id)
+        return vpc_id
+    except ClientError as e:
+        print(f"Error creating VPC: {e}")
+        sys.exit()
+
+def create_subnet(vpc_id, cidr_block, availability_zone, name):
+    try:
+        subnet = ec2.create_subnet(
+            VpcId=vpc_id,
+            CidrBlock=cidr_block,
+            AvailabilityZone=availability_zone
+        )
+        subnet_id = subnet['Subnet']['SubnetId']
+        ec2.create_tags(Resources=[subnet_id], Tags=[{"Key": "Name", "Value": name}])
+        print(f"Subnet created with ID: {subnet_id}")
+        save_to_ssm(f'/python/{name.lower().replace(" ", "_")}_subnet_id', subnet_id)
+        return subnet_id
+    except ClientError as e:
+        print(f"Error creating subnet: {e}")
+        sys.exit()
+
+def create_internet_gateway(vpc_id):
+    try:
+        igw = ec2.create_internet_gateway()
+        igw_id = igw['InternetGateway']['InternetGatewayId']
+        ec2.attach_internet_gateway(InternetGatewayId=igw_id, VpcId=vpc_id)
+        ec2.create_tags(Resources=[igw_id], Tags=[{"Key": "Name", "Value": "PYT_GW"}])
+        print(f"Internet Gateway created with ID: {igw_id}")
+        save_to_ssm('/python/internet_gateway_id', igw_id)
+        return igw_id
+    except ClientError as e:
+        print(f"Error creating Internet Gateway: {e}")
+        sys.exit()
+
+def create_nat_gateway(subnet_id):
+    try:
+        eip = ec2.allocate_address(Domain='vpc')
+        allocation_id = eip['AllocationId']
+        nat_gateway = ec2.create_nat_gateway(SubnetId=subnet_id, AllocationId=allocation_id)
+        nat_gateway_id = nat_gateway['NatGateway']['NatGatewayId']
+        print(f"NAT Gateway created with ID: {nat_gateway_id}")
+        save_to_ssm('/python/nat_gateway_id', nat_gateway_id)
+        return nat_gateway_id
+    except ClientError as e:
+        print(f"Error creating NAT Gateway: {e}")
+        sys.exit()
+
+def create_route_table(vpc_id, gateway_id=None, nat_gateway_id=None, is_public=True):
+    try:
+        route_table = ec2.create_route_table(VpcId=vpc_id)
+        route_table_id = route_table['RouteTableId']
+
+        if is_public:
+            ec2.create_route(RouteTableId=route_table_id, DestinationCidrBlock="0.0.0.0/0", GatewayId=gateway_id)
+            print(f"Public Route Table created with ID: {route_table_id}")
+        else:
+            ec2.create_route(RouteTableId=route_table_id, DestinationCidrBlock="0.0.0.0/0", NatGatewayId=nat_gateway_id)
+            print(f"Private Route Table created with ID: {route_table_id}")
+        
+        save_to_ssm(f'/python/route_table_id_{"public" if is_public else "private"}', route_table_id)
+        return route_table_id
+    except ClientError as e:
+        print(f"Error creating Route Table: {e}")
+        sys.exit()
+
+def associate_route_table(subnet_id, route_table_id):
+    try:
+        association = ec2.associate_route_table(SubnetId=subnet_id, RouteTableId=route_table_id)
+        association_id = association['AssociationId']
+        print(f"Associated Route Table {route_table_id} with Subnet {subnet_id}")
+        return association_id
+    except ClientError as e:
+        print(f"Error associating Route Table: {e}")
+        sys.exit()
+
+def create_key_pair():
+    try:
+        key_pair = ec2.create_key_pair(KeyName="stackkp")
+        save_to_ssm('/python/key_pair_name', "stackkp")
+        print(f"Key pair 'stackkp' created and saved.")
+    except ClientError as e:
+        print(f"Error creating Key Pair: {e}")
+        sys.exit()
+
+
+def create_web_security_group(vpc_id):
+    try:
+        sg = ec2.create_security_group(
+            GroupName="web-pyt-sg",
+            Description="Security group for web servers",
+            VpcId=vpc_id
+        )
+        sg_id = sg['GroupId']
+        print(f"Web Security Group created with ID: {sg_id}")
+
+        # Add ingress and egress rules
+        ec2.authorize_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=[
+                {'IpProtocol': 'tcp', 'FromPort': 3306, 'ToPort': 3306, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+                {'IpProtocol': 'tcp', 'FromPort': 22, 'ToPort': 22, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+                {'IpProtocol': 'tcp', 'FromPort': 80, 'ToPort': 80, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+                {'IpProtocol': 'tcp', 'FromPort': 443, 'ToPort': 443, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+            ]
+        )
+
+        ec2.authorize_security_group_egress(
+            GroupId=sg_id,
+            IpPermissions=[
+                {'IpProtocol': 'tcp', 'FromPort': 0, 'ToPort': 0, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+            ]
+        )
+
+        print(f"Rules added to Web Security Group {sg_id}.")
+        save_to_ssm('/python/web_sg_id', sg_id)
+        return sg_id
+
+    except ClientError as e:
+        print(f"Error creating Web Security Group: {e}")
+        sys.exit()
+
+
+def create_db_security_group(vpc_id):
+    try:
+        sg = ec2.create_security_group(
+            GroupName="db-pyt-sg",
+            Description="Security group for database",
+            VpcId=vpc_id
+        )
+        sg_id = sg['GroupId']
+        print(f"DB Security Group created with ID: {sg_id}")
+
+        # Add ingress rules
+        ec2.authorize_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=[
+                {'IpProtocol': 'tcp', 'FromPort': 3306, 'ToPort': 3306, 'IpRanges': [{'CidrIp': '10.0.0.0/16'}]},
+                {'IpProtocol': 'tcp', 'FromPort': 2049, 'ToPort': 2049, 'IpRanges': [{'CidrIp': '10.0.0.0/16'}]},
+            ]
+        )        
+        print(f"Rules added to DB Security Group {sg_id}.")
+        save_to_ssm('/python/db_sg_id', sg_id) 
+        return sg_id
+    except ClientError as e:
+        print(f"Error creating DB Security Group: {e}")
+        sys.exit()
+
+def create_db_subnet_group(subnet_ids):
+    try:
+        db_subnet_group = rds_client.create_db_subnet_group(
+            DBSubnetGroupName='db-subnet-group',
+            SubnetIds=subnet_ids,
+            DBSubnetGroupDescription="Subnet group for RDS"
+        )
+        db_subnet_group_name = db_subnet_group['DBSubnetGroup']['DBSubnetGroupName']
+        print(f"DB Subnet Group '{db_subnet_group_name}' created.")
+        save_to_ssm('/python/db_subnet_group_name', db_subnet_group_name) 
+        return db_subnet_group_name
+    except ClientError as e:
+        print(f"Error creating DB Subnet Group: {e}")
+        sys.exit()
+
+def restore_db_from_snapshot(snapshot_id, db_subnet_group_name, db_security_group_id):
+    try:
+        db_instance = rds_client.restore_db_instance_from_db_snapshot(
+            DBInstanceIdentifier='wordpressdbclixx-ecs',
+            DBSnapshotIdentifier=snapshot_id,
+            DBInstanceClass='db.t2.micro',
+            DBSubnetGroupName=db_subnet_group_name,
+            VpcSecurityGroupIds=[db_security_group_id]
+        )
+        db_instance_id = db_instance['DBInstance']['DBInstanceIdentifier']
+        print(f"Restored DB Instance with ID: {db_instance_id} from snapshot {snapshot_id}.")
+        save_to_ssm('/python/db_instance_id', db_instance_id) 
+        return db_instance_id
+    except ClientError as e:
+        print(f"Error restoring DB from snapshot: {e}")
+        sys.exit()
+
+def create_efs_file_system():
+    try:
+        file_system = efs.create_file_system(CreationToken="efs-token")
+        file_system_id = file_system['FileSystemId']
+        print(f"EFS File System created with ID: {file_system_id}.")
+        save_to_ssm('/python/efs_file_system_id', file_system_id) 
+        return file_system_id
+    except ClientError as e:
+        print(f"Error creating EFS File System: {e}")
+        sys.exit()
+
+def create_efs_mount_target(file_system_id, subnet_id, security_group_id):
+    try:
+        mount_target = efs.create_mount_target(
+            FileSystemId=file_system_id,
+            SubnetId=subnet_id,
+            SecurityGroups=[security_group_id]
+        )
+        mount_target_id = mount_target['MountTargetId']
+        print(f"EFS Mount Target created with ID: {mount_target_id}.")
+        return mount_target_id
+    except ClientError as e:
+        print(f"Error creating EFS Mount Target: {e}")
+        sys.exit()
+
+def create_target_group(vpc_id):
+    try:
+        target_group = elbv2_client.create_target_group(
+            Name="web-pyth-tg",
+            Protocol="HTTP",
+            Port=80,
+            VpcId=vpc_id,
+            HealthCheckProtocol="HTTP",
+            HealthCheckPort="80"
+        )
+        target_group_arn = target_group['TargetGroups'][0]['TargetGroupArn']
+        print(f"Target Group created with ARN: {target_group_arn}")
+        save_to_ssm('/python/target_group_arn', target_group_arn) 
+        return target_group_arn
+    except ClientError as e:
+        print(f"Error creating Target Group: {e}")
+        sys.exit()
+
+def create_application_load_balancer(subnet_ids, security_group_id):
+    try:
+        load_balancer = elbv2_client.create_load_balancer(
+            Name="pyth-web-alb",
+            Subnets=subnet_ids,
+            SecurityGroups=[security_group_id],
+            Scheme='internet-facing',
+            Type='application'
+        )
+        alb_arn = load_balancer['LoadBalancers'][0]['LoadBalancerArn']
+        alb_hz = load_balancer['LoadBalancers'][0]['CanonicalHostedZoneId']
+        alb_dns = load_balancer['LoadBalancers'][0]['DNSName']
+        print(f"Application Load Balancer created with ARN: {alb_arn}")
+        save_to_ssm('/python/alb_arn', alb_arn) 
+        save_to_ssm('/python/alb_hz', alb_hz)   
+        save_to_ssm('/python/alb_dns', alb_dns)  
+        return alb_arn, alb_hz, alb_dns
+    except ClientError as e:
+        print(f"Error creating Application Load Balancer: {e}")
+        sys.exit()
+
+def attach_target_group_to_listener(load_balancer_arn, target_group_arn):
+    try:
+        listeners = elbv2_client.describe_listeners(LoadBalancerArn=load_balancer_arn)
+        listener_arn = listeners['Listeners'][0]['ListenerArn']
+        elbv2_client.modify_listener(
+            ListenerArn=listener_arn,
+            DefaultActions=[{'Type': 'forward', 'TargetGroupArn': target_group_arn}]
+        )
+        print(f"Target Group {target_group_arn} attached to Load Balancer listener {listener_arn}.")
+    except ClientError as e:
+        print(f"Error attaching Target Group to Listener: {e}")
+        sys.exit()
+
+def create_route_53_record(alb_hz, alb_dns):
+    try:
+        route53.change_resource_record_sets(
             HostedZoneId='Z01063533B95XIB5GVOHL',
             ChangeBatch={
                 'Changes': [
@@ -355,8 +353,8 @@ try:
                             'Name': 'dev.clixx-samuel.com',
                             'Type': 'A',
                             'AliasTarget': {
-                                'HostedZoneId': lb_HZ,
-                                'DNSName': lb_dns,
+                                'HostedZoneId': alb_hz,
+                                'DNSName': alb_dns,
                                 'EvaluateTargetHealth': False
                             }
                         }
@@ -364,52 +362,221 @@ try:
                 ]
             }
         )
-        print(f"Route 53 record created: {response}")
-except ClientError as e:
-    print(f"Error creating Route 53 record: {str(e)}")
-    sys.exit()      
-  
+        print(f"Route 53 record created for dev.clixx-samuel.com.")
+    except ClientError as e:
+        print(f"Error creating Route 53 record: {e}")
+        sys.exit()
 
-# Creating Auto scale
-try:
+
+
+def create_launch_template(file_system_id, sg_id, base64):
+    # User database
+    USERDATA = '''#!/bin/bash
+
+    #Declaring Variables
+    DB_NAME="wordpressdb"
+    DB_USER="wordpressuser"
+    DB_PASS="W3lcome123"
+    LB_DNS="https://dev.clixx-samuel.com"
+    EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
+
+    exec > >(tee -a /var/log/userdata.log) 2>&1
+ 
+    ##Install the needed packages and enable the services (MariaDb, Apache)
+    sudo yum update -y
+    sudo yum install git -y
+    sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+    sudo yum install -y httpd mariadb-server
+    sudo systemctl start httpd
+    sudo systemctl enable httpd
+    sudo systemctl is-enabled httpd
+
+    ## Mounting EFS
+    FILE_SYSTEM_ID=%s
+    AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+    REGION=${AVAILABILITY_ZONE:0:-1}
+    MOUNT_POINT=/var/www/html
+    sudo mkdir -p ${MOUNT_POINT}
+    sudo chown ec2-user:ec2-user ${MOUNT_POINT}
+    echo "${FILE_SYSTEM_ID}.efs.${REGION}.amazonaws.com:/ ${MOUNT_POINT} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0" | sudo tee -a /etc/fstab
+    sudo mount -a -t nfs4
+
+    ## Verifying if EFS mounted correctly
+    if [ $? -eq 0 ]; then
+        echo "EFS mount succeded" >> /var/log/userdata.log
+    else
+        echo "EFS mount failed" >> /var/log/userdata.log
+    fi
+    sudo chmod -R 755 ${MOUNT_POINT}
+ 
+    ##Add ec2-user to Apache group and grant permissions to /var/www
+    sudo usermod -a -G apache ec2-user
+    sudo chown -R ec2-user:apache /var/www
+    sudo chmod 2775 /var/www && find /var/www -type d -exec sudo chmod 2775 {} \;
+    find /var/www -type f -exec sudo chmod 0664 {} \;
+    cd /var/www/html
+  
+ 
+    ## Cloning repository
+    if [ -f /var/www/html/wp-config.php ]; then
+        echo "Repository already exists..." >> /var/log/userdata.log
+    else
+        echo "Now cloning repository..." >> /var/log/userdata.log
+        git clone https://github.com/stackitgit/CliXX_Retail_Repository.git
+        cp -r CliXX_Retail_Repository/* /var/www/html
+    fi 
+
+    # Replacing localhost URLs with RDS Endpoint in wp-config.php
+    sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/html/wp-config.php
+
+    # Updating WordPress site URLs in RDS database
+    echo "Running DB update statement..." >> /var/log/userdata.log
+    RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
+    echo $RESULT >> /var/log/userdata.log
+
+    # Check if result is empty
+    if [[ -n "$RESULT" ]]; then
+        echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
+        mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
+        UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%%';
+        EOF
+        echo "UPDATE query executed." >> /var/log/userdata.log
+    else
+        echo "No matching values found. Skipping update..." >> /var/log/userdata.log
+    fi
+
+ 
+    ## Allow wordpress to use Permalinks
+    echo "Now allowing WordPress to use Permalinks…" >> /var/log/userdata.log
+    sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
+ 
+    ##Grant file ownership of /var/www & its contents to apache user
+    sudo chown -R apache /var/www
+ 
+    ##Grant group ownership of /var/www & contents to apache group
+    sudo chgrp -R apache /var/www
+ 
+    ##Change directory permissions of /var/www & its subdir to add group write 
+    sudo chmod 2775 /var/www
+    find /var/www -type d -exec sudo chmod 2775 {} \;
+ 
+    ##Recursively change file permission of /var/www & subdir to add group write perm
+    sudo find /var/www -type f -exec sudo chmod 0664 {} \;
+ 
+    ##Restart Apache
+    echo "Now restarting services..." >> /var/log/userdata.log
+    sudo systemctl restart httpd
+    sudo service httpd restart
+ 
+    ##Enable httpd 
+    sudo systemctl enable httpd 
+    sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=200 net.ipv4.tcp_keepalive_intvl=200 net.ipv4.tcp_keepalive_probes=5
+
+    echo "End of Bootstrap!" >> /var/log/userdata.log
+
+    ''' % (file_system_id)
+    
+    USER_DATA_ENCODED = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
+
+    try:
+        launch_template = ec2.create_launch_template(
+            LaunchTemplateName='pyt-launch-template',
+            VersionDescription='v1',
+            LaunchTemplateData={
+                'ImageId': AMI_ID,
+                'InstanceType': 't2.micro',
+                'KeyName': 'stackkp',
+                'SecurityGroupIds': [sg_id],
+                'UserData': USER_DATA_ENCODED
+            }
+        )
+        launch_template_id = launch_template['LaunchTemplate']['LaunchTemplateId']
+        print(f"Launch Template created with ID: {launch_template_id}.")
+        save_to_ssm('/python/launch_template_id', launch_template_id)
+        return launch_template_id
+    except ClientError as e:
+        print(f"Error creating Launch Template: {e}")
+
+def create_auto_scaling_group(launch_template_id, subnet_ids):
+    try:
         time.sleep(390)
-        autoscaling = boto3.client('autoscaling',
-            aws_access_key_id=credentials['AccessKeyId'],
-            aws_secret_access_key=credentials['SecretAccessKey'],
-            aws_session_token=credentials['SessionToken']
-    )
-        response = autoscaling.create_auto_scaling_group(
-            AutoScalingGroupName='my-auto-scaling-group',
+        autoscaling.create_auto_scaling_group(
+            AutoScalingGroupName="pyt-asg",
             LaunchTemplate={
-                'LaunchTemplateId': launch_temp_id,
+                'LaunchTemplateId': launch_template_id,
                 'Version': '1'
             },
             MinSize=1,
             MaxSize=3,
-            DesiredCapacity=1,
-            TargetGroupARNs=[target_group_arn],
-            VPCZoneIdentifier=f"{SUBNET_ID},{SUBNET_ID1}"
+            DesiredCapacity=2,
+            VPCZoneIdentifier=",".join(subnet_ids),
+            HealthCheckType="ELB",
+            HealthCheckGracePeriod=300
         )
-        print(f"Auto Scaling Group created: {response}")
-except ClientError as e:
-    print(f"Error creating Auto Scaling Group: {str(e)}")
-    sys.exit()
+        print("Auto Scaling Group created.")
+    except ClientError as e:
+        print(f"Error creating Auto Scaling Group: {e}")
+        sys.exit()
 
-# Storing values in SSM
-try:
-    ssm = boto3.client('ssm',
-                   aws_access_key_id=credentials['AccessKeyId'],
-                   aws_secret_access_key=credentials['SecretAccessKey'],
-                   aws_session_token=credentials['SessionToken'])
-    
-    ssm.put_parameter(Name='/myapp/DB_id', Value=DB_id, Type='String', Overwrite=True)
-    ssm.put_parameter(Name='/myapp/lb_dns', Value=lb_dns, Type='String', Overwrite=True)
-    ssm.put_parameter(Name='/myapp/lb_arn', Value=lb_arn, Type='String', Overwrite=True)
-    ssm.put_parameter(Name='/myapp/target_group_arn', Value=target_group_arn, Type='String', Overwrite=True)
-    ssm.put_parameter(Name='/myapp/efs_id', Value=efs_id, Type='String', Overwrite=True)
-    ssm.put_parameter(Name='/myapp/security_group_id', Value=security_group_id, Type='String', Overwrite=True)
+def main():
+    # Create VPC
+    vpc_id = create_vpc()
 
-    print("Resource details saved to SSM Parameter Store")
-except ClientError as e:
-    print(f"Error saving to SSM Parameter Store: {str(e)}")
-    sys.exit()
+    # Create Subnets
+    public_subnet_id1 = create_subnet(vpc_id, "10.0.1.0/24", "us-east-1a", "Public Subnet 1")
+    public_subnet_id2 = create_subnet(vpc_id, "10.0.2.0/24", "us-east-1b", "Public Subnet 2")
+    private_subnet_id1 = create_subnet(vpc_id, "10.0.3.0/24", "us-east-1a", "Private Subnet 1")
+    private_subnet_id2 = create_subnet(vpc_id, "10.0.4.0/24", "us-east-1b", "Private Subnet 2")
+
+    # Create Internet Gateway
+    igw_id = create_internet_gateway(vpc_id)
+
+    # Create NAT Gateway
+    nat_gateway_id = create_nat_gateway(public_subnet_id1)
+
+    # Create Route Tables and associate them with subnets
+    public_route_table_id = create_route_table(vpc_id, gateway_id=igw_id, is_public=True)
+    private_route_table_id = create_route_table(vpc_id, nat_gateway_id=nat_gateway_id, is_public=False)
+
+    associate_route_table(public_subnet_id1, public_route_table_id)
+    associate_route_table(public_subnet_id2, public_route_table_id)
+    associate_route_table(private_subnet_id1, private_route_table_id)
+    associate_route_table(private_subnet_id2, private_route_table_id)
+
+    # Create Security Groups
+    web_sg_id = create_web_security_group(vpc_id)
+    db_sg_id = create_db_security_group(vpc_id)
+
+    # Create Key Pair
+    create_key_pair()
+
+    # Create RDS Subnet Group
+    db_subnet_group_name = create_db_subnet_group([private_subnet_id1, private_subnet_id2])
+
+    # Restore RDS from Snapshot
+    snapshot_id = 'arn:aws:rds:us-east-1:577701061234:snapshot:wordpressdbclixx-ecs-snapshot'
+    db_instance_id = restore_db_from_snapshot(snapshot_id, db_subnet_group_name, db_sg_id)
+
+    # Create EFS
+    efs_id = create_efs_file_system()
+    create_efs_mount_target(efs_id, public_subnet_id1, web_sg_id)
+    create_efs_mount_target(efs_id, private_subnet_id1, web_sg_id)
+
+    # Create Load Balancer and Target Group
+    target_group_arn = create_target_group(vpc_id)
+    alb_arn = create_application_load_balancer([public_subnet_id1, public_subnet_id2], web_sg_id)
+    attach_target_group_to_listener(alb_arn, target_group_arn)
+
+    # Create Route 53 record for Load Balancer
+    create_route_53_record("alb_hz", "alb_dns")
+
+    # Create Launch Template
+    launch_template_id = create_launch_template("sg_id")
+
+    # Create Auto Scaling Group
+    create_auto_scaling_group(launch_template_id, [public_subnet_id1, public_subnet_id2])
+
+    print("Infrastructure creation complete!")
+
+if __name__ == "__main__":
+    main()
