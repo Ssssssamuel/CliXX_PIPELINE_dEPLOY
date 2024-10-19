@@ -118,11 +118,13 @@ def create_internet_gateway(vpc_id):
     except ClientError as e:
         print(f"Error creating Internet Gateway: {e}")
         sys.exit()
+        
 
 def create_nat_gateway(subnet_id):
     try:
-        eip = ec2.allocate_address(Domain='vpc')
-        allocation_id = eip['AllocationId']
+        #eip = ec2.allocate_address(Domain='vpc')
+        #allocation_id = eip['AllocationId']
+        allocation_id = 'eipalloc-069b27cb44f5b1178'
         nat_gateway = ec2.create_nat_gateway(SubnetId=subnet_id, AllocationId=allocation_id)
         time.sleep(60)
         nat_gateway_id = nat_gateway['NatGateway']['NatGatewayId']
