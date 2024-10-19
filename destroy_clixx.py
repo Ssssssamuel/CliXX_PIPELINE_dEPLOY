@@ -200,7 +200,7 @@ def delete_db_instance():
 
 def delete_db_subnet_group(subnet_id):
     try:
-        time.sleep(20)
+        time.sleep(30)
         db_subnet_group_name = get_from_ssm('/python/db_subnet_group_name')
         if not db_subnet_group_name:
             print("DB Subnet Group name not found in SSM. Skipping deletion.")
@@ -319,9 +319,29 @@ def delete_route_table(route_type):
         print(f"Error deleting Route Table: {e}")
         
 
+def release_elastic_ip(allocation_id):
+    try:
+        # Disassociate the Elastic IP
+        ec2.disassociate_address(AllocationId=allocation_id)
+        print(f"Elastic IP {allocation_id} disassociated successfully.")
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'InvalidAssociationID.NotFound':
+            print(f"Elastic IP {allocation_id} is not associated with any resource.")
+        else:
+            print(f"Error disassociating Elastic IP: {e}")
+            return
+    try:
+        # Releasing the Elastic IP
+        ec2.release_address(AllocationId=allocation_id)
+        print(f"Elastic IP {allocation_id} released successfully.")
+    except ClientError as e:
+        print(f"Error releasing Elastic IP: {e}")
+
+
+
 def delete_subnet(subnet_name):
     try:
-        time.sleep(70)
+        time.sleep(80)
         subnet_id = get_from_ssm(f'/python/{subnet_name.lower().replace(" ", "_")}_subnet_id')
         if not subnet_id:
             print(f"Subnet {subnet_name} ID not found in SSM. Skipping deletion.")
@@ -335,7 +355,7 @@ def delete_subnet(subnet_name):
 
 def delete_vpc():
     try:
-        time.sleep(15)
+        time.sleep(20)
         vpc_id = get_from_ssm('/python/vpc_id')
         if not vpc_id:
             print("VPC ID not found in SSM. Skipping VPC deletion.")
@@ -350,11 +370,11 @@ def delete_all_resources():
     # Delete resources in reverse order of their creation
     delete_db_instance()
     delete_nat_gateway()
-    
+    release_elastic_ip()
     delete_subnet('private_subnet_2')
     delete_subnet('public_subnet_2')
-    delete_subnet('private_subnet_1')
     delete_internet_gateway()
+    delete_subnet('private_subnet_1')
     delete_route_table('public')
     delete_route_table('private')
     delete_subnet('public_subnet_1')
