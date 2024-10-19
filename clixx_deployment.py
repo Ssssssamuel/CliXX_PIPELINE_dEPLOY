@@ -340,6 +340,24 @@ def create_application_load_balancer(subnet_ids, security_group_id):
     except ClientError as e:
         print(f"Error creating Application Load Balancer: {e}")
         sys.exit()
+        
+        
+def create_listener(load_balancer_arn, target_group_arn):
+    try:
+        listener = elbv2_client.create_listener(
+            LoadBalancerArn=load_balancer_arn,
+            Port=80,
+            Protocol='HTTP',
+            DefaultActions=[{
+                'Type': 'forward',
+                'TargetGroupArn': target_group_arn
+            }]
+        )
+        print(f"Listener created with ARN: {listener['Listeners'][0]['ListenerArn']}")
+    except ClientError as e:
+        print(f"Error creating Listener: {e}")
+        sys.exit()
+
 
 def attach_target_group_to_listener(load_balancer_arn, target_group_arn):
     try:
@@ -579,6 +597,7 @@ def main():
     # Create Load Balancer and Target Group
     target_group_arn = create_target_group(vpc_id)
     alb_arn, alb_hz, alb_dns = create_application_load_balancer([public_subnet_id1, public_subnet_id2], web_sg_id)
+    create_listener(alb_arn, target_group_arn)
     attach_target_group_to_listener(alb_arn, target_group_arn)
 
 
