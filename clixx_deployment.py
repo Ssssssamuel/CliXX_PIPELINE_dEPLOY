@@ -134,8 +134,13 @@ def create_nat_gateway(subnet_id):
 
 def create_route_table(vpc_id, gateway_id=None, nat_gateway_id=None, is_public=True):
     try:
-        route_table = ec2.create_route_table(VpcId=vpc_id)
+        response = ec2.create_route_table(VpcId=vpc_id)
+        print("Route Table creation response: ", response)
+        #route_table = ec2.create_route_table(VpcId=vpc_id)
+        #route_table_id = route_table['RouteTableId']
+        route_table = response['RouteTable']
         route_table_id = route_table['RouteTableId']
+        print(f"Route Table '{route_table_id}' created successfully.")
 
         if is_public:
             ec2.create_route(RouteTableId=route_table_id, DestinationCidrBlock="0.0.0.0/0", GatewayId=gateway_id)
