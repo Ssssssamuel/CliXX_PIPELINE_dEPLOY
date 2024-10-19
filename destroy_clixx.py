@@ -370,7 +370,7 @@ def delete_all_resources():
     # Delete resources in reverse order of their creation
     delete_db_instance()
     delete_nat_gateway()
-    release_elastic_ip('allocation_id')
+    release_elastic_ip()
     delete_subnet('private_subnet_2')
     delete_subnet('public_subnet_2')
     delete_internet_gateway()
