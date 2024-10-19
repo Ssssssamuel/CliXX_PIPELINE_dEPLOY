@@ -186,12 +186,14 @@ def delete_db_instance():
 
         rds_client.delete_db_instance(DBInstanceIdentifier=db_instance_id, SkipFinalSnapshot=True)
         print(f"DB Instance '{db_instance_id}' deleted successfully.")
+        time.sleep(20)
     except ClientError as e:
         print(f"Error deleting DB Instance: {e}")
         
 
 def delete_db_subnet_group():
     try:
+        time.sleep(20)
         db_subnet_group_name = get_from_ssm('/python/db_subnet_group_name')
         if not db_subnet_group_name:
             print("DB Subnet Group name not found in SSM. Skipping deletion.")
@@ -307,6 +309,7 @@ def delete_subnet(subnet_name):
 
 def delete_vpc():
     try:
+        time.sleep(15)
         vpc_id = get_from_ssm('/python/vpc_id')
         if not vpc_id:
             print("VPC ID not found in SSM. Skipping VPC deletion.")
@@ -335,10 +338,10 @@ def delete_all_resources():
     delete_application_load_balancer()
     delete_target_group()
     delete_efs_mount_target()
-    delete_efs_file_system()
-    delete_db_subnet_group()
+    delete_efs_file_system()  
     delete_auto_scaling_group()
     delete_launch_template()
+    delete_db_subnet_group()
     delete_security_group('db')
     delete_security_group('web')
 
