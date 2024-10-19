@@ -85,6 +85,7 @@ def delete_key_pair():
         print(f"Key Pair {key_pair_name} deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Key Pair: {e}")
+        
 
 def delete_auto_scaling_group():
     try:
@@ -105,6 +106,7 @@ def delete_auto_scaling_group():
         print(f"Auto Scaling Group '{auto_scaling_group_name}' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Auto Scaling Group: {e}")
+        
 
 def delete_launch_template():
     try:
@@ -117,6 +119,7 @@ def delete_launch_template():
         print(f"Launch Template '{launch_template_id}' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Launch Template: {e}")
+        
 
 def delete_application_load_balancer():
     try:
@@ -129,6 +132,7 @@ def delete_application_load_balancer():
         print(f"Application Load Balancer '{alb_arn}' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Application Load Balancer: {e}")
+        
 
 def delete_target_group():
     try:
@@ -141,7 +145,8 @@ def delete_target_group():
         print(f"Target Group '{target_group_arn}' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Target Group: {e}")
-
+        
+        
 def delete_efs_mount_target():
     try:
         file_system_id = get_from_ssm('/python/efs_file_system_id')
@@ -156,6 +161,7 @@ def delete_efs_mount_target():
             print(f"EFS Mount Target '{mount_target['MountTargetId']}' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting EFS Mount Target: {e}")        
+        
 
 def delete_efs_file_system():
     try:
@@ -169,6 +175,7 @@ def delete_efs_file_system():
         print(f"EFS File System '{file_system_id}' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting EFS File System: {e}")
+        
 
 def delete_db_instance():
     try:
@@ -182,6 +189,7 @@ def delete_db_instance():
         time.sleep(20)
     except ClientError as e:
         print(f"Error deleting DB Instance: {e}")
+        
 
 def delete_db_subnet_group():
     try:
@@ -195,6 +203,7 @@ def delete_db_subnet_group():
         print(f"DB Subnet Group '{db_subnet_group_name}' deleted successfully.")
     except ClientError as e:
         print(f"Error deleting DB Subnet Group: {e}")
+        
 
 def delete_security_group(sg_name):
     try:
@@ -207,6 +216,7 @@ def delete_security_group(sg_name):
         print(f"Security Group {sg_id} deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Security Group: {e}")
+        
 
 def delete_internet_gateway():
     try:
@@ -218,70 +228,122 @@ def delete_internet_gateway():
         vpc_id = get_from_ssm('/python/vpc_id')
         ec2.detach_internet_gateway(InternetGatewayId=igw_id, VpcId=vpc_id)
         ec2.delete_internet_gateway(InternetGatewayId=igw_id)
-        print(f"Internet Gateway '{igw_id}' deleted successfully.")
+        print(f"Internet Gateway {igw_id} deleted successfully.")
     except ClientError as e:
         print(f"Error deleting Internet Gateway: {e}")
+        
 
-def delete_route_tables():
+def delete_route_53_record():
     try:
-        vpc_id = get_from_ssm('/python/vpc_id')
-        if not vpc_id:
-            print("VPC ID not found in SSM. Skipping Route Table deletion.")
+        h_z= 'Z01063533B95XIB5GVOHL'
+        alb_hz = get_from_ssm('/python/alb_hz')
+        alb_dns = get_from_ssm('/python/alb_dns')
+        # Getting the existing record set
+        existing_record = route53.list_resource_record_sets(
+            HostedZoneId=h_z,
+            StartRecordName='dev.clixx-samuel.com',
+            StartRecordType='A',
+            MaxItems="1"
+        )
+        
+        # Checking if the record exists and matches the expected values
+        if existing_record['ResourceRecordSets']:
+            current_record = existing_record['ResourceRecordSets'][0]
+            
+            route53.change_resource_record_sets(
+                HostedZoneId=h_z,
+                ChangeBatch={
+                    'Changes': [
+                        {
+                            'Action': 'DELETE',
+                            'ResourceRecordSet': current_record
+                            }
+                        ]
+                    }
+                )
+
+        print(f"Route 53 record for 'dev.clixx-samuel.com' deleted successfully.")
+    except ClientError as e:
+        print(f"Error deleting Route 53 record: {e}")
+        
+
+def delete_nat_gateway():
+    try:
+        nat_gateway_id = get_from_ssm('/python/nat_gateway_id')
+        if not nat_gateway_id:
+            print("NAT Gateway ID not found in SSM. Skipping deletion.")
             return
 
-        route_tables = ec2.describe_route_tables(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['RouteTables']
-        for rt in route_tables:
-            ec2.delete_route_table(RouteTableId=rt['RouteTableId'])
-            print(f"Route Table '{rt['RouteTableId']}' deleted successfully.")
+        ec2.delete_nat_gateway(NatGatewayId=nat_gateway_id)
+        print(f"NAT Gateway {nat_gateway_id} deleted successfully.")
     except ClientError as e:
-        print(f"Error deleting Route Tables: {e}")
+        print(f"Error deleting NAT Gateway: {e}")
+        
 
-def delete_subnets():
+def delete_route_table(route_type):
     try:
-        vpc_id = get_from_ssm('/python/vpc_id')
-        if not vpc_id:
-            print("VPC ID not found in SSM. Skipping Subnet deletion.")
+        route_table_id = get_from_ssm(f'/python/route_table_id_{route_type}')
+        if not route_table_id:
+            print(f"Route Table {route_type} ID not found in SSM. Skipping deletion.")
             return
-
-        subnets = ec2.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['Subnets']
-        for subnet in subnets:
-            ec2.delete_subnet(SubnetId=subnet['SubnetId'])
-            print(f"Subnet '{subnet['SubnetId']}' deleted successfully.")
+        
+        ec2.delete_route_table(RouteTableId=route_table_id)
+        print(f"Route Table {route_table_id} deleted successfully.")
     except ClientError as e:
-        print(f"Error deleting Subnets: {e}")
+        print(f"Error deleting Route Table: {e}")
+        
+
+def delete_subnet(subnet_name):
+    try:
+        time.sleep(70)
+        subnet_id = get_from_ssm(f'/python/{subnet_name.lower().replace(" ", "_")}_subnet_id')
+        if not subnet_id:
+            print(f"Subnet {subnet_name} ID not found in SSM. Skipping deletion.")
+            return
+        
+        ec2.delete_subnet(SubnetId=subnet_id)
+        print(f"Subnet {subnet_id} deleted successfully.")
+    except ClientError as e:
+        print(f"Error deleting subnet: {e}")
+        
 
 def delete_vpc():
     try:
+        time.sleep(15)
         vpc_id = get_from_ssm('/python/vpc_id')
         if not vpc_id:
             print("VPC ID not found in SSM. Skipping VPC deletion.")
             return
-
+        
         ec2.delete_vpc(VpcId=vpc_id)
-        print(f"VPC '{vpc_id}' deleted successfully.")
+        print(f"VPC {vpc_id} deleted successfully.")
     except ClientError as e:
         print(f"Error deleting VPC: {e}")
 
-# Main function to orchestrate deletions
-def main():
-    delete_auto_scaling_group()
-    delete_launch_template()
+def delete_all_resources():
+    # Delete resources in reverse order of their creation
+    delete_db_instance()
+    delete_nat_gateway()
+    time.sleep(60)
+    delete_subnet('public_subnet_1')
+    delete_subnet('private_subnet_2')
+    delete_subnet('public_subnet_2')
+    delete_subnet('private_subnet_1')
+    delete_internet_gateway()
+    delete_route_table('public')
+    delete_route_table('private')
+    delete_vpc()
+    delete_key_pair()
+    delete_route_53_record()
     delete_application_load_balancer()
     delete_target_group()
     delete_efs_mount_target()
-    delete_efs_file_system()
-    delete_db_instance()
+    delete_efs_file_system()  
+    delete_auto_scaling_group()
+    delete_launch_template()
     delete_db_subnet_group()
-    
-    # Ensure the Security Groups are deleted first
-    delete_security_group("db")
-    delete_security_group("web")
+    delete_security_group('db')
+    delete_security_group('web')
 
-    delete_internet_gateway()
-    delete_route_tables()
-    delete_subnets()
-    delete_vpc()
-    delete_key_pair()
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    delete_all_resources()

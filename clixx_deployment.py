@@ -602,7 +602,7 @@ def main():
 
 
     # Create Route 53 record for Load Balancer
-    create_route_53_record("alb_hz", "alb_dns")
+    create_route_53_record(alb_hz, alb_dns)
 
     # Create Launch Template
     launch_template_id = create_launch_template("sg_id")
