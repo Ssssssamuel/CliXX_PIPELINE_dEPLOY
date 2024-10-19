@@ -412,7 +412,7 @@ def create_route_53_record(alb_hz, alb_dns):
 
 
 
-def create_launch_template(file_system_id, sg_id, base64):
+def create_launch_template(file_system_id, sg_id, base64, public_subnet_id1):
     # User database
     USERDATA = '''#!/bin/bash
 
@@ -522,23 +522,45 @@ def create_launch_template(file_system_id, sg_id, base64):
     USER_DATA_ENCODED = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
 
     try:
-        launch_template = ec2.create_launch_template(
+        response = ec2.create_launch_template(
             LaunchTemplateName='pyt-launch-template',
-            VersionDescription='v1',
             LaunchTemplateData={
                 'ImageId': AMI_ID,
-                'InstanceType': 't2.micro',
+                'InstanceType': 't2.micro', 
                 'KeyName': 'stackkp',
                 'SecurityGroupIds': [sg_id],
-                'UserData': USER_DATA_ENCODED
+                'UserData': base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8'),
+                'NetworkInterfaces': [
+                    {
+                        'DeviceIndex': 0,
+                        'SubnetId': public_subnet_id1,
+                        'AssociatePublicIpAddress': True,
+                        'Groups': [sg_id] 
+                    }
+                ],
+                'EbsOptimized': False,
+                'BlockDeviceMappings': [
+                    {
+                        'DeviceName': '/dev/xvda',
+                        'Ebs': {
+                            'VolumeSize': 20,
+                            'VolumeType': 'gp2',
+                            'DeleteOnTermination': True
+                        }
+                    }
+                ]
             }
         )
-        launch_template_id = launch_template['LaunchTemplate']['LaunchTemplateId']
-        print(f"Launch Template created with ID: {launch_template_id}.")
-        save_to_ssm('/python/launch_template_id', launch_template_id)
+        
+        launch_template_id = response['LaunchTemplate']['LaunchTemplateId']
+        print(f"Launch template created successfully: {launch_template_id}")
+        
+        # Store the launch template ID in SSM for future use
+        ssm.put_parameter(Name='/python/launch_template_id', Value=launch_template_id, Type='String', Overwrite=True)
         return launch_template_id
     except ClientError as e:
-        print(f"Error creating Launch Template: {e}")
+        print(f"Error creating launch template: {e}")
+        sys.exit(1)
 
 def create_auto_scaling_group(launch_template_id, subnet_ids, target_group_arn):
     try:
@@ -616,7 +638,7 @@ def main():
     create_route_53_record(alb_hz, alb_dns)
 
     # Create Launch Template
-    launch_template_id = create_launch_template(efs_id, web_sg_id, base64)
+    launch_template_id = create_launch_template(efs_id, web_sg_id, base64, public_subnet_id1)
 
     # Create Auto Scaling Group
     create_auto_scaling_group(launch_template_id, [public_subnet_id1, public_subnet_id2], target_group_arn)
