@@ -533,7 +533,7 @@ def create_launch_template(file_system_id, sg_id, base64):
     except ClientError as e:
         print(f"Error creating Launch Template: {e}")
 
-def create_auto_scaling_group(launch_template_id, subnet_ids):
+def create_auto_scaling_group(launch_template_id, subnet_ids, target_group_arn):
     try:
         time.sleep(390)
         autoscaling.create_auto_scaling_group(
@@ -544,10 +544,9 @@ def create_auto_scaling_group(launch_template_id, subnet_ids):
             },
             MinSize=1,
             MaxSize=3,
-            DesiredCapacity=2,
+            DesiredCapacity=1,
+            TargetGroupARNs=[target_group_arn],
             VPCZoneIdentifier=",".join(subnet_ids),
-            HealthCheckType="ELB",
-            HealthCheckGracePeriod=300
         )
         print("Auto Scaling Group created.")
     except ClientError as e:
@@ -613,7 +612,7 @@ def main():
     launch_template_id = create_launch_template(efs_id, web_sg_id, base64)
 
     # Create Auto Scaling Group
-    create_auto_scaling_group(launch_template_id, [public_subnet_id1, public_subnet_id2])
+    create_auto_scaling_group(launch_template_id, [public_subnet_id1, public_subnet_id2], target_group_arn)
 
     print("Infrastructure creation complete!")
 
