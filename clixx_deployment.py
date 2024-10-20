@@ -182,7 +182,6 @@ def create_key_pair():
         print(f"Error creating Key Pair: {e}")
         sys.exit()
 
-
 def create_web_security_group(vpc_id):
     try:
         sg = ec2.create_security_group(
@@ -218,7 +217,6 @@ def create_web_security_group(vpc_id):
     except ClientError as e:
         print(f"Error creating Web Security Group: {e}")
         sys.exit()
-
 
 def create_db_security_group(vpc_id):
     try:
@@ -274,7 +272,6 @@ def restore_db_from_snapshot(snapshot_id, db_subnet_group_name, db_security_grou
         )
         
         db_instance_id = db_instance['DBInstance']['DBInstanceIdentifier']
-        time.sleep(90)
         print(f"Restored DB Instance with ID: {db_instance_id} from snapshot {snapshot_id}.")
         save_to_ssm('/python/db_instance_id', db_instance_id) 
         return db_instance_id
@@ -371,7 +368,6 @@ def create_listener(load_balancer_arn, target_group_arn):
         print(f"Error creating Listener: {e}")
         sys.exit()
 
-
 def attach_target_group_to_listener(load_balancer_arn, target_group_arn):
     try:
         listeners = elbv2_client.describe_listeners(LoadBalancerArn=load_balancer_arn)
@@ -394,7 +390,7 @@ def create_route_53_record(alb_hz, alb_dns):
                     {
                         'Action': 'UPSERT',
                         'ResourceRecordSet': {
-                            'Name': 'dev2.clixx-samuel.com',
+                            'Name': 'dev.clixx-samuel.com',
                             'Type': 'A',
                             'AliasTarget': {
                                 'HostedZoneId': alb_hz,
@@ -406,17 +402,15 @@ def create_route_53_record(alb_hz, alb_dns):
                 ]
             }
         )
-        print(f"Route 53 record created for dev2.clixx-samuel.com.")
+        print(f"Route 53 record created for dev.clixx-samuel.com.")
     except ClientError as e:
         print(f"Error creating Route 53 record: {e}")
         sys.exit()
 
 
-
 def create_launch_template(file_system_id, sg_id, base64, public_subnet_id1):
     # UserData script
     USERDATA = '''#!/bin/bash
-
 # Declaring Variables
 DB_NAME="wordpressdb"
 DB_USER="wordpressuser"
@@ -426,36 +420,33 @@ EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
 
 exec > >(tee -a /var/log/userdata.log) 2>&1
 
-# Install the needed packages and enable the services (MariaDB, Apache)
+# Install needed packages and enable services (MariaDB, Apache)
 sudo yum update -y
-sudo yum install -y nfs-utils
 sudo yum install git -y
 sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
 sudo yum install -y httpd mariadb-server
 sudo systemctl start httpd
 sudo systemctl enable httpd
-sudo systemctl is-enabled httpd
 
 # Mounting EFS
+FILE_SYSTEM_ID=%s
 AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
-REGION=$${AVAILABILITY_ZONE:0:-1}
+REGION=${AVAILABILITY_ZONE:0:-1}
+MOUNT_POINT=/var/www/html
 sudo mkdir -p ${MOUNT_POINT}
 sudo chown ec2-user:ec2-user ${MOUNT_POINT}
-sudo echo "Resolved EFS ID: ${FILE}" >> /var/log/userdata.log
-sudo echo "${FILE}.efs.${REGION}.amazonaws.com:/ ${MOUNT_POINT} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0" >> /etc/fstab
+echo "${FILE_SYSTEM_ID}.efs.${REGION}.amazonaws.com:/ ${MOUNT_POINT} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0" | sudo tee -a /etc/fstab
 sudo mount -a -t nfs4
 
-# Verifying if EFS mounted correctly
+# Verify if EFS mounted correctly
 if [ $? -eq 0 ]; then
     echo "EFS mount succeeded" >> /var/log/userdata.log
 else
     echo "EFS mount failed" >> /var/log/userdata.log
 fi
-
-sudo chmod -R 755 /var/www/html
 sudo chmod -R 755 ${MOUNT_POINT}
 
-# Add ec2-user to Apache group and grant permissions to /var/www
+# Add ec2-user to Apache group and grant permissions
 sudo usermod -a -G apache ec2-user
 sudo chown -R ec2-user:apache /var/www
 sudo chmod 2775 /var/www && find /var/www -type d -exec sudo chmod 2775 {} \;
@@ -469,7 +460,7 @@ else
     echo "Now cloning repository..." >> /var/log/userdata.log
     git clone https://github.com/stackitgit/CliXX_Retail_Repository.git
     cp -r CliXX_Retail_Repository/* /var/www/html
-fi 
+fi
 
 # Replacing localhost URLs with RDS Endpoint in wp-config.php
 sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/html/wp-config.php
@@ -477,7 +468,7 @@ sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/
 # Updating WordPress site URLs in RDS database
 echo "Running DB update statement..." >> /var/log/userdata.log
 RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
-echo $${RESULT} >> /var/log/userdata.log
+echo $RESULT >> /var/log/userdata.log
 
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
@@ -490,32 +481,24 @@ else
     echo "No matching values found. Skipping update..." >> /var/log/userdata.log
 fi
 
-# Updating wp-config.php file
-sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', false ); \nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) \&\& \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\$_SERVER['HTTPS'] = 'on';}/" /var/www/html/wp-config.php
-
 # Allow WordPress to use Permalinks
-echo "Now allowing WordPress to use Permalinks..." >> /var/log/userdata.log
+echo "Now allowing WordPress to use Permalinks…" >> /var/log/userdata.log
 sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
 
-# Grant file ownership of /var/www & its contents to apache user
+# Grant file ownership of /var/www to apache
 sudo chown -R apache /var/www
- 
-# Grant group ownership of /var/www & contents to apache group
 sudo chgrp -R apache /var/www
- 
-# Change directory permissions of /var/www & its subdirectories to add group write
 sudo chmod 2775 /var/www
 find /var/www -type d -exec sudo chmod 2775 {} \;
-
-# Recursively change file permission of /var/www & subdirectories to add group write permissions
-sudo find /var/www -type f -exec sudo chmod 0664 {} \;
+find /var/www -type f -exec sudo chmod 0664 {} \;
 
 # Restart Apache
+echo "Now restarting services..." >> /var/log/userdata.log
 sudo systemctl restart httpd
 sudo service httpd restart
- 
-# Enable httpd
-sudo systemctl enable httpd 
+
+# Enable httpd and adjust kernel settings
+sudo systemctl enable httpd
 sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=200 net.ipv4.tcp_keepalive_intvl=200 net.ipv4.tcp_keepalive_probes=5
 
 echo "End of Bootstrap!" >> /var/log/userdata.log
@@ -552,6 +535,201 @@ echo "End of Bootstrap!" >> /var/log/userdata.log
                 ]
             }
         )
+        
+        launch_template_id = response['LaunchTemplate']['LaunchTemplateId']
+        print(f"Launch template created successfully: {launch_template_id}")
+        
+        # Store the launch template ID in SSM for future use
+        ssm.put_parameter(Name='/python/launch_template_id', Value=launch_template_id, Type='String', Overwrite=True)
+        return launch_template_id
+    except ClientError as e:
+        print(f"Error creating launch template: {e}")
+        sys.exit(1)
+        
+def create_launch_template(file_system_id, sg_id, base64, public_subnet_id1):
+    # UserData script
+    USERDATA = '''#!/bin/bash
+# Declaring Variables
+DB_NAME="wordpressdb"
+DB_USER="wordpressuser"
+DB_PASS="W3lcome123"
+LB_DNS="https://dev.clixx-samuel.com"
+EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
+
+exec > >(tee -a /var/log/userdata.log) 2>&1
+
+# Install needed packages and enable services (MariaDB, Apache)
+sudo yum update -y
+sudo yum install git -y
+sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
+sudo yum install -y httpd mariadb-server
+sudo systemctl start httpd
+sudo systemctl enable httpd
+
+# Mounting EFS
+FILE_SYSTEM_ID=%s
+AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+REGION=${AVAILABILITY_ZONE:0:-1}
+MOUNT_POINT=/var/www/html
+sudo mkdir -p ${MOUNT_POINT}
+sudo chown ec2-user:ec2-user ${MOUNT_POINT}
+echo "${FILE_SYSTEM_ID}.efs.${REGION}.amazonaws.com:/ ${MOUNT_POINT} nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,_netdev 0 0" | sudo tee -a /etc/fstab
+sudo mount -a -t nfs4
+
+# Verify if EFS mounted correctly
+if [ $? -eq 0 ]; then
+    echo "EFS mount succeeded" >> /var/log/userdata.log
+else
+    echo "EFS mount failed" >> /var/log/userdata.log
+fi
+sudo chmod -R 755 ${MOUNT_POINT}
+
+# Add ec2-user to Apache group and grant permissions
+sudo usermod -a -G apache ec2-user
+sudo chown -R ec2-user:apache /var/www
+sudo chmod 2775 /var/www && find /var/www -type d -exec sudo chmod 2775 {} \;
+find /var/www -type f -exec sudo chmod 0664 {} \;
+cd /var/www/html
+
+# Cloning repository
+if [ -f /var/www/html/wp-config.php ]; then
+    echo "Repository already exists..." >> /var/log/userdata.log
+else
+    echo "Now cloning repository..." >> /var/log/userdata.log
+    git clone https://github.com/stackitgit/CliXX_Retail_Repository.git
+    cp -r CliXX_Retail_Repository/* /var/www/html
+fi
+
+# Replacing localhost URLs with RDS Endpoint in wp-config.php
+sudo sed -i "s/define( 'DB_HOST', .*/define( 'DB_HOST', '$EP_DNS' );/" /var/www/html/wp-config.php
+
+# Updating WordPress site URLs in RDS database
+echo "Running DB update statement..." >> /var/log/userdata.log
+RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
+echo $RESULT >> /var/log/userdata.log
+
+# Check if result is empty
+if [[ -n "$RESULT" ]]; then
+    echo "Matching values found. Proceeding with UPDATE query..." >> /var/log/userdata.log
+    mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
+UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%%';
+EOF
+    echo "UPDATE query executed." >> /var/log/userdata.log
+else
+    echo "No matching values found. Skipping update..." >> /var/log/userdata.log
+fi
+
+# Updating wp-config.php file
+sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', false ); \nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) \&\& \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\$_SERVER['HTTPS'] = 'on';}/" /var/www/html/wp-config.php
+
+# Allow WordPress to use Permalinks
+echo "Now allowing WordPress to use Permalinks…" >> /var/log/userdata.log
+sudo sed -i '151s/None/All/' /etc/httpd/conf/httpd.conf
+
+# Grant file ownership of /var/www to apache
+sudo chown -R apache /var/www
+sudo chgrp -R apache /var/www
+sudo chmod 2775 /var/www
+find /var/www -type d -exec sudo chmod 2775 {} \;
+find /var/www -type f -exec sudo chmod 0664 {} \;
+
+# Restart Apache
+echo "Now restarting services..." >> /var/log/userdata.log
+sudo systemctl restart httpd
+sudo service httpd restart
+
+# Enable httpd and adjust kernel settings
+sudo systemctl enable httpd
+sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=200 net.ipv4.tcp_keepalive_intvl=200 net.ipv4.tcp_keepalive_probes=5
+
+echo "End of Bootstrap!" >> /var/log/userdata.log
+''' % (file_system_id)
+    
+    USER_DATA_ENCODED = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
+
+    try:
+        response = ec2.create_launch_template(
+            LaunchTemplateName='pyt-launch-template',
+            LaunchTemplateData={
+                'ImageId': AMI_ID,
+                'InstanceType': 't2.micro',
+                'KeyName': 'stackkp',
+                'UserData': USER_DATA_ENCODED,
+                'NetworkInterfaces': [
+                    {
+                        'DeviceIndex': 0,
+                        'SubnetId': public_subnet_id1,
+                        'AssociatePublicIpAddress': True,
+                        'Groups': [sg_id]
+                    }
+                ],
+                'EbsOptimized': False,
+                'BlockDeviceMappings': [
+                    {
+                        'DeviceName': '/dev/xvda',
+                        'Ebs': {
+                            'VolumeSize': 20,
+                            'VolumeType': 'gp2',
+                            'DeleteOnTermination': True
+                        }
+                    }
+                ]
+            }
+        )
+        
+        launch_template_id = response['LaunchTemplate']['LaunchTemplateId']
+        print(f"Launch template created successfully: {launch_template_id}")
+        
+        # Store the launch template ID in SSM for future use
+        ssm.put_parameter(Name='/python/launch_template_id', Value=launch_template_id, Type='String', Overwrite=True)
+        return launch_template_id
+    except ClientError as e:
+        print(f"Error creating launch template: {e}")
+        sys.exit(1)
+
+
+    
+    USER_DATA_ENCODED = base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8')
+
+    try:
+        response = ec2.create_launch_template(
+            LaunchTemplateName='pyt-launch-template',
+            LaunchTemplateData={
+                'ImageId': AMI_ID,
+                'InstanceType': 't2.micro', 
+                'KeyName': 'stackkp',
+                'UserData': base64.b64encode(USERDATA.encode('utf-8')).decode('utf-8'), 
+                'NetworkInterfaces': [
+                    {
+                        'DeviceIndex': 0,
+                        'SubnetId': public_subnet_id1,
+                        'AssociatePublicIpAddress': True, 
+                        'Groups': [sg_id] 
+                    }
+                ],
+                'EbsOptimized': False, 
+                'BlockDeviceMappings': [
+                    {
+                        'DeviceName': '/dev/xvda',
+                        'Ebs': {
+                            'VolumeSize': 20,
+                            'VolumeType': 'gp2',
+                            'DeleteOnTermination': True
+                        }
+                    }
+                ]
+            }
+        )
+        
+        launch_template_id = response['LaunchTemplate']['LaunchTemplateId']
+        print(f"Launch template created successfully: {launch_template_id}")
+        
+        # Storing the launch template ID in SSM for future use
+        ssm.put_parameter(Name='/python/launch_template_id', Value=launch_template_id, Type='String', Overwrite=True)
+        return launch_template_id
+    except ClientError as e:
+        print(f"Error creating launch template: {e}")
+        sys.exit(1)
         
         launch_template_id = response['LaunchTemplate']['LaunchTemplateId']
         print(f"Launch template created successfully: {launch_template_id}")
@@ -625,15 +803,14 @@ def main():
 
     # Create EFS
     efs_id = create_efs_file_system()
+    create_efs_mount_target(efs_id, public_subnet_id1, web_sg_id)
     create_efs_mount_target(efs_id, private_subnet_id1, web_sg_id)
-    create_efs_mount_target(efs_id, private_subnet_id2, web_sg_id)
 
     # Create Load Balancer and Target Group
     target_group_arn = create_target_group(vpc_id)
     alb_arn, alb_hz, alb_dns = create_application_load_balancer([public_subnet_id1, public_subnet_id2], web_sg_id)
     create_listener(alb_arn, target_group_arn)
     attach_target_group_to_listener(alb_arn, target_group_arn)
-
 
     # Create Route 53 record for Load Balancer
     create_route_53_record(alb_hz, alb_dns)
@@ -648,3 +825,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
