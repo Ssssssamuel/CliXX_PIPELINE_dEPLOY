@@ -483,7 +483,7 @@ if [[ -n "$RESULT" ]]; then
     mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME <<EOF
 UPDATE wp_options SET option_value ="$LB_DNS" WHERE option_value LIKE 'CliXX-APP-NLB%%';
 EOF
-    echo "UPDATE query executed." >> /var/log/userdata.log
+    echo "UPDATE query executed." >> /var/log/userda:ta.log
 else
     echo "No matching values found. Skipping update..." >> /var/log/userdata.log
 fi
@@ -615,8 +615,8 @@ def main():
 
     # Create EFS
     efs_id = create_efs_file_system()
-    create_efs_mount_target(efs_id, public_subnet_id1, web_sg_id)
     create_efs_mount_target(efs_id, private_subnet_id1, web_sg_id)
+    create_efs_mount_target(efs_id, private_subnet_id2, web_sg_id)
 
     # Create Load Balancer and Target Group
     target_group_arn = create_target_group(vpc_id)
