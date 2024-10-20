@@ -199,7 +199,6 @@ def create_web_security_group(vpc_id):
                 {'IpProtocol': 'tcp', 'FromPort': 3306, 'ToPort': 3306, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
                 {'IpProtocol': 'tcp', 'FromPort': 22, 'ToPort': 22, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
                 {'IpProtocol': 'tcp', 'FromPort': 80, 'ToPort': 80, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
-                {'IpProtocol': 'tcp', 'FromPort': 2049, 'ToPort': 2049, 'IpRanges': [{'CidrIp': '10.0.0.0/16'}]},
                 {'IpProtocol': 'tcp', 'FromPort': 443, 'ToPort': 443, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
             ]
         )
@@ -275,6 +274,7 @@ def restore_db_from_snapshot(snapshot_id, db_subnet_group_name, db_security_grou
         db_instance_id = db_instance['DBInstance']['DBInstanceIdentifier']
         print(f"Restored DB Instance with ID: {db_instance_id} from snapshot {snapshot_id}.")
         save_to_ssm('/python/db_instance_id', db_instance_id) 
+        time.sleep(120)
         return db_instance_id
     except ClientError as e:
         print(f"Error restoring DB from snapshot: {e}")
@@ -804,8 +804,8 @@ def main():
 
     # Create EFS
     efs_id = create_efs_file_system()
-    create_efs_mount_target(efs_id, public_subnet_id1, web_sg_id)
-    create_efs_mount_target(efs_id, private_subnet_id1, web_sg_id)
+    create_efs_mount_target(efs_id, public_subnet_id1, db_sg_id)
+    create_efs_mount_target(efs_id, private_subnet_id1, db_sg_id)
 
     # Create Load Balancer and Target Group
     target_group_arn = create_target_group(vpc_id)
