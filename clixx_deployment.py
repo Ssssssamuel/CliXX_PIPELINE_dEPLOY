@@ -393,7 +393,7 @@ def create_route_53_record(alb_hz, alb_dns):
                     {
                         'Action': 'UPSERT',
                         'ResourceRecordSet': {
-                            'Name': 'dev.clixx-samuel.com',
+                            'Name': 'dev2.clixx-samuel.com',
                             'Type': 'A',
                             'AliasTarget': {
                                 'HostedZoneId': alb_hz,
@@ -405,7 +405,7 @@ def create_route_53_record(alb_hz, alb_dns):
                 ]
             }
         )
-        print(f"Route 53 record created for dev.clixx-samuel.com.")
+        print(f"Route 53 record created for dev2.clixx-samuel.com.")
     except ClientError as e:
         print(f"Error creating Route 53 record: {e}")
         sys.exit()
@@ -419,7 +419,7 @@ def create_launch_template(file_system_id, sg_id, base64, public_subnet_id1):
 DB_NAME="wordpressdb"
 DB_USER="wordpressuser"
 DB_PASS="W3lcome123"
-LB_DNS="https://dev.clixx-samuel.com"
+LB_DNS="https://dev2.clixx-samuel.com"
 EP_DNS="wordpressdbclixx-ecs.cfmgy6w021vw.us-east-1.rds.amazonaws.com"
 
 exec > >(tee -a /var/log/userdata.log) 2>&1
@@ -429,8 +429,8 @@ sudo yum update -y
 sudo yum install git -y
 sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
 sudo yum install -y httpd mariadb-server
-#sudo systemctl start httpd
-#sudo systemctl enable httpd
+sudo systemctl start httpd
+sudo systemctl enable httpd
 
 # Mounting EFS
 FILE_SYSTEM_ID=%s
@@ -474,22 +474,8 @@ echo "Running DB update statement..." >> /var/log/userdata.log
 RESULT=$(mysql -u $DB_USER -p"$DB_PASS" -h $EP_DNS -D $DB_NAME -sse "SELECT option_value FROM wp_options WHERE option_value LIKE 'CliXX-APP-NLB%%';" 2>&1)
 echo $RESULT >> /var/log/userdata.log
 
-
-# Updating wp-config.php file
-WP_CONFIG_PATH="/path/to/wp-config.php"
-CUSTOM_CODE="if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-    \$_SERVER['HTTPS'] = 'on';
-}"
-
-LINE_NUMBER=$(nl -ba "$WP_CONFIG_PATH" | grep "/* That's all, stop editing! Happy publishing. */" | awk '{print $1}')
-
-if [ -n "$LINE_NUMBER" ]; then
-    sed -i "$((LINE_NUMBER-1))i $CUSTOM_CODE" "$WP_CONFIG_PATH"
-    echo "Custom code successfully inserted above the '/* That's all, stop editing! */' line in wp-config.php."
-else
-    echo "The line '/* That's all, stop editing! */' was not found in wp-config.php." >> /var/log/userdata.log
-fi
-
+# Updating wordpress file
+sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', false ); \nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) \&\& \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\$_SERVER['HTTPS'] = 'on';}/" /var/www/html/wp-config.php
 
 # Check if result is empty
 if [[ -n "$RESULT" ]]; then
@@ -515,8 +501,8 @@ find /var/www -type f -exec sudo chmod 0664 {} \;
 
 # Restart Apache
 echo "Now restarting services..." >> /var/log/userdata.log
-sudo systemctl start httpd
-sudo service httpd start
+sudo systemctl restart httpd
+sudo service httpd restart
 
 # Enable httpd and adjust kernel settings
 sudo systemctl enable httpd
