@@ -422,6 +422,7 @@ exec > >(tee -a /var/log/userdata.log) 2>&1
 
 # Install needed packages and enable services (MariaDB, Apache)
 sudo yum update -y
+sudo yum install -y nfs-utils
 sudo yum install git -y
 sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
 sudo yum install -y httpd mariadb-server
