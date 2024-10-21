@@ -83,7 +83,17 @@ def create_vpc():
     try:
         vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")
         vpc_id = vpc['Vpc']['VpcId']
+        
+        ec2.modify_vpc_attribute(
+            VpcId=vpc_id, 
+            EnableDnsSupport={'Value': True}
+        )
+        ec2.modify_vpc_attribute(
+            VpcId=vpc_id, 
+            EnableDnsHostnames={'Value': True}
+        )
         ec2.create_tags(Resources=[vpc_id], Tags=[{"Key": "Name", "Value": "PYTVPC"}])
+        
         print(f"VPC created with ID: {vpc_id}")
         save_to_ssm('/python/vpc_id', vpc_id)
         return vpc_id
