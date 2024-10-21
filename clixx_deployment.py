@@ -493,6 +493,7 @@ else
 fi
 
 #Updating Wordpress file
+echo "Now performing sed for https..." >> /var/log/userdata.log
 sudo sed -i "s/define( 'WP_DEBUG', false );/define( 'WP_DEBUG', false ); \nif (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) \&\& \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {\$_SERVER['HTTPS'] = 'on';}/" /var/www/html/wp-config.php
 
 # Allow WordPress to use Permalinks
